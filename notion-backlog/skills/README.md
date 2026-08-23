@@ -51,3 +51,6 @@ changes.
     1. Replace <Backlog Name> with the name of your Notion backlog
        you [should have created previously](../tools/README.md#how-to-set-this-up).
     2. Take a quick look at the paragraph, there might still be some links to adapt.
+
+## The best of it
+Log in your GitHub in Claude so you can start Cloud sessions using the `/go` skill, in order to go on with your project without code access (like from your smartphone).
