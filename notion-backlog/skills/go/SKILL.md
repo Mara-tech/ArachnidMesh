@@ -1,0 +1,423 @@
+---
+name: go
+description: Run one iteration of the Notion backlog — take the highest-priority todo ticket, split it first if it is too big to deliver in one pass, implement it on a branch, open the pull request, report on the ticket page, hand it over for review, and close it once the pull request is merged. Accepts --auto-merge to carry on through the merge instead of stopping at the handover, and --max-review-passes=N to cap the fix passes over the review comments.
+disable-model-invocation: true
+---
+
+# Run one backlog iteration
+
+One invocation is **one ticket, taken to review**. Never run two at a time; if an iteration is
+already open, say so and stop.
+
+Facts about the backlog — database, language, what this repository adds — are in
+[.claude/rules/notion-tickets.md](../../rules/notion-tickets.md), already in context. How a ticket is
+written is the Notion page it links to, « Rédiger un ticket »; steps 4 and 11 need it.
+
+## What this file needs before it runs
+
+This skill is a template. Each `<placeholder>` is filled in once, when the skill is copied into a
+project — [skills/README.md](../README.md#how-to-set-this-up) walks through it.
+
+| Placeholder | What it is | Example |
+|---|---|---|
+| `<your-notion-database>` | the data source URI of the backlog | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
+| `<your-main-branch>` | the branch pull requests target | `main` |
+| `<your-local-checks>` | the commands that must pass before a push | `npm run lint && npm run typecheck && npm test` |
+| `<your-coverage-command>` | the command that reports coverage, if the project has one | `npm run coverage` |
+
+**A placeholder still present when the skill runs is a setup that was not finished**: say which one
+and stop. Guessing a value here means querying a database that is not the user's, or pushing onto a
+branch that is not the base.
+
+## 0. Read the invocation
+
+`$ARGUMENTS` carries the flags. Read them first, and **say which mode is running before touching
+anything** — an iteration that merges when the user expected a handover is not undone by an apology.
+
+| Flag | Effect | Default |
+|---|---|---|
+| *(none)* | stop at the handover, step 12. The ticket waits in `review in progress` for a human | — |
+| `--auto-merge` | wait for every check, triage the review, fix, merge, set `done`, end on `<your-main-branch>` | off |
+| `--max-review-passes=N` | ceiling on fix passes over review comments. `0` reads and records without fixing. **Ignored without `--auto-merge`** | `1` |
+
+The name `--max-review-passes` deliberately avoids `--max-turns`: several CI setups already use that
+one for a ceiling on *conversation turns*, an unrelated counter, and one word for two meanings is how
+a repository starts lying to its readers.
+
+Anything in `$ARGUMENTS` that is not one of these is not a flag to guess at: say what you did not
+understand and stop, rather than running a mode nobody asked for.
+
+## 1. Take the top ticket
+
+**Close out what is already finished first**, in two passes — the queue has to describe reality
+before it can be trusted to name the next ticket.
+
+**Pass one, the finished.** Any ticket sitting in `review in progress` gets its pull request read and
+its status settled — step 13. A ticket whose pull request was merged is `done`, and leaving it open
+makes the queue lag behind reality.
+
+```sql
+SELECT "userDefined:ID", "Titre", "Commentaires", url
+FROM "<your-notion-database>"
+WHERE "Statut" = 'review in progress'
+```
+
+**Pass two, the interrupted.** A ticket left in `in progress` is an iteration that died in flight —
+plan quota exhausted, session closed, machine off. Step 3 sets `in progress`, and everything after it
+can stop without warning. The query below filters on `todo`, so such a ticket is **invisible to it**:
+without this pass the loop steps over the orphan and leaves it stuck for good, which in an autonomous
+run happens once and is never noticed.
+
+```sql
+SELECT "userDefined:ID", "Titre", "Commentaires", url
+FROM "<your-notion-database>"
+WHERE "Statut" = 'in progress'
+```
+
+For each one, look for its branch (`git branch -a --list '*<slug>*'`) and its pull request
+(`Commentaires` carries it, and `gh pr list --head <branch>` confirms):
+
+| What you find | What to do |
+|---|---|
+| no branch, no pull request | the work is lost — set the ticket back to `todo`, say so, and start step 1 again |
+| a branch, no pull request | resume it at step 6, on that branch |
+| an open pull request | resume it at step 8 |
+
+**When in doubt, hand back rather than guess.** A half-finished ticket picked up wrongly costs more
+than one returned to the user with a description of what was found.
+
+Then take the top ticket:
+
+```sql
+SELECT "userDefined:ID", "Titre", "Genre", "Priorité", "Dépend de", "Description", url
+FROM "<your-notion-database>"
+WHERE "Statut" = 'todo'
+ORDER BY "Priorité" DESC
+LIMIT 1
+```
+
+Fetch the page to read its body, not just its properties: the Definition of Done and the details
+live there.
+
+## 2. Check it can actually start
+
+Read its `Dépend de` relation. Every ticket it points at must be `done`.
+
+If one is not, **the backlog is wrong, not the ticket** — a blocked ticket cannot legitimately be top
+of the queue. Treat it as the anomaly it is: raise the blocking dependency above it, tell the user
+what you reordered and why, then restart at step 1 on the new top ticket. Do not start the blocked
+ticket, and do not quietly slide down to the second-highest and say nothing.
+
+## 3. Claim it
+
+Set `Statut` to `in progress`, and tell the user which ticket you took and what you understood of it
+before writing any code. If the ticket is ambiguous enough that two readings give different work,
+ask now — not after the branch exists.
+
+## 4. Split it if it is too big — the user decides, not you
+
+A ticket that cannot be taken to review in one pass is not a ticket to start bravely, it is a ticket
+to split. « Rédiger un ticket » lists the signs that a ticket holds two; on this project, add these:
+the Definition of Done cannot be honestly ticked by one coherent commit, the work spans layers that
+would each want their own review, or an arbitration sits in the middle of the path.
+
+**Propose, do not decide.** Say where the seam is and what falls on each side, then wait. The user
+may refuse and ask you to attempt it in one pass — that is a legitimate answer, and the iteration
+carries on at step 5 as if nothing had happened.
+
+If the user accepts, and only then:
+
+1. **Write the children** as « Rédiger un ticket » says — each one self-contained, each with its own
+   Definition of Done. What the parent held is distributed between them, not copied into each.
+2. **The children take the parent's place in the queue, in order.** The last child inherits the
+   parent's exact priority; each earlier one sits one step above it. A parent at 100 split in two
+   gives 101, then 100. They are therefore the next tickets to come out. `Priorité` is a number, not
+   an integer counter: if a value above the parent is already held by a ticket still in the queue,
+   use the gap (100.5) rather than a duplicate.
+3. **Dependencies cascade.** The first child depends on the parent; every other child depends on the
+   one before it. A chain, never a fan — it is what keeps the slices in the order they were cut.
+4. **Re-point what depended on the parent.** Read the parent's `Est une dépendance de`: in each of
+   those tickets, `Dépend de` loses the parent and gains the **last** child. This is the expensive
+   step to forget — the parent goes `done` on the spot, so those tickets would look startable while
+   the work they are waiting for has not begun.
+5. **Close the parent.** `Statut` to `done`, `Commentaires` to `Éclaté en <id>-66 et <id>-67` — the IDs
+   spelled out — and a short note in the body saying why it was cut and what went where. Its
+   Definition of Done stays unticked: it moved into the children. **This is the one `done` that does
+   not follow a merge.**
+
+Worked example, **PROJ-42** at priority 100 split in two:
+
+| | `Priorité` | `Dépend de` | `Statut` |
+|---|---|---|---|
+| **PROJ-42**, the parent | 100 | unchanged | `done`, `Commentaires` = `Éclaté en PROJ-66 et PROJ-67` |
+| **PROJ-66**, first child | 101 | PROJ-42 | `todo` |
+| **PROJ-67**, second child | 100 | PROJ-66 | `todo` |
+| whatever depended on PROJ-42 | unchanged | PROJ-42 → **PROJ-67** | unchanged |
+
+Then **restart at step 1**, which takes the first child — it is now the top of the queue. Say so
+before restarting rather than after: the user agreed to a split, which is not the same as agreeing to
+have the first slice implemented in the same breath.
+
+## 5. Branch off `<your-main-branch>`
+
+Always create a new branch from `<your-main-branch>`, never from whatever branch is checked out.
+Create it **`--no-track`**, so its upstream is *not* set to `origin/<your-main-branch>`:
+
+```
+git fetch origin && git switch -c <prefix>/<slug> --no-track origin/<your-main-branch>
+```
+
+Why `--no-track` is not optional: a branch cut from `origin/<your-main-branch>` normally takes it as
+its upstream, and a repository set to `push.default = upstream` then resolves a bare `git push` to
+**`<your-main-branch>`** and pushes straight onto it — no branch, no pull request, the base branch
+moved. It has happened. `--no-track` leaves the branch with no upstream, so the same slip fails
+loudly (`fatal: no upstream configured`) instead of landing silently; step 7 sets the upstream, once,
+to the right branch. `git config push.default` says whether this repository is exposed — but keep
+`--no-track` either way, it costs nothing on one that never was.
+
+| `Genre` | prefix |
+|---|---|
+| feature | `feature/` |
+| bug | `bugfix/` |
+| déploiement | `chore/` |
+
+`<slug>` is a short kebab-case summary, in English — it is a repository name.
+
+## 6. Implement
+
+Code, tests and documentation in the same pass, under the conventions in `.claude/rules/`. The
+ticket's Definition of Done is the contract: every box has to be genuinely checkable before the
+ticket moves on. A partially done ticket stays `in progress` and says what is missing.
+
+**Prove the tests bite.** Break the behaviour under test on purpose, watch the new test fail, restore
+it immediately. A test that still passes against broken code is worse than no test, because it buys
+false confidence. Note which passes you did — they go in the report.
+
+Run `<your-local-checks>` before pushing. Finding a failure here costs one minute; finding it in CI
+costs a round trip.
+
+## 7. Commit, push, open the pull request
+
+The user's standing authorization covers exactly this, for the ticket in progress: **commit, push,
+and open a pull request against `<your-main-branch>`**. It covers nothing else — no merge, no direct
+push to `<your-main-branch>`, no force-push, no branch deletion. Merging, and the branch cleanup that comes with it, happen
+only on an explicit instruction — that is step 13, a separate authorization, never automatic. Under
+`--auto-merge` that instruction was given at the invocation; without it, it has not been given at
+all.
+
+Commit message, branch name, PR title and PR body in English. The PR body links the Notion ticket.
+
+Push with an **explicit destination refspec** — never a bare `git push`, whose destination
+`push.default = upstream` can resolve to `<your-main-branch>`:
+
+```
+git push -u origin HEAD:refs/heads/<prefix>/<slug>
+```
+
+`HEAD:refs/heads/<prefix>/<slug>` names the destination branch outright, so it is immune to
+`push.default` and to whatever upstream the branch carries; `-u` then sets that branch as the
+upstream. **Read the push summary before doing anything else**: it must end in `-> <prefix>/<slug>`,
+never `-> <your-main-branch>`. If it names the base branch, you have pushed onto it — stop and tell
+the user; do not try to rewind it yourself, since that needs a force-push to `<your-main-branch>`,
+which the authorization forbids.
+
+Two things on the ticket, in the same pass — a commit that lands without them leaves the backlog
+describing a state that no longer exists:
+
+- **Tick the Definition of Done boxes the commit actually satisfies**, where they live: the
+  `Description` property on most tickets, the page body on the others. Tick what is true and nothing
+  more — an unticked box is the honest signal that the ticket is not finished, and a ticked one is a
+  claim someone will trust without re-checking.
+- **Point `Commentaires` at the pull request**: `PR #<n> ouverte — <url>`. One line, rewritten from
+  then on rather than appended to; step 13 keeps it current.
+
+## 8. Wait for every check
+
+Whatever the project has wired to a pull request runs here — a test suite, a build, a type check, a
+linter, an automated code reviewer. **A repository with no checks at all is a legitimate case**:
+there is nothing to wait for, nothing to triage at step 9, and the iteration goes on. But it is
+written down, in the report and in the handover, as "nothing checked this pull request" — the
+distance between "nothing objected" and "nobody was asked" is exactly what the reader needs and
+cannot recover afterwards. Under `--auto-merge` it matters twice over: no human read the diff *and*
+no machine did, and the local run of step 6 does not fill the gap — same tree, same machine, same
+agent.
+
+`gh pr checks` fails while **no** check has registered yet, which is the normal state for a few
+seconds after `gh pr create`. Retry a bounded number of times until one appears — that failure is
+expected, not an incident. It is also what a repository without CI looks like, so bound the retries
+and conclude "no check is configured" rather than waiting forever. Then block until they all
+finish, and read them:
+
+```
+gh pr checks <number> --watch --interval 30
+gh pr checks <number> --json name,workflow,bucket,link
+```
+
+`--watch` returns when every check is done. Do **not** add `--fail-fast`: it exits on the first
+failure, and the point here is to collect every result in one pass. `bucket` is
+`pass`/`fail`/`pending`/`skipping`/`cancel`; exit code 8 means checks are still pending.
+
+**Checks do not all carry the same weight**, and confusing the two kinds stalls iterations that
+should proceed:
+
+| Kind | Red means |
+|---|---|
+| **It judges** — tests, build, type check, linter: anything whose verdict is mechanical | the iteration does not advance. Fix the cause and push again — never work around it, never hand over on a red one |
+| **It advises** — an automated code reviewer: its output is an opinion on the diff, and it is the input to step 9 | you are deprived of an opinion, nothing more. Say so in the report and carry on |
+
+When a check's kind is not obvious from its name, **treat it as one that judges**. Mistaking an
+advisory check for a blocking one costs one question to the user; the reverse merges on a red build.
+
+Without `--auto-merge`, the iteration continues at step 10 as before: the review comments, if any,
+are left for the user.
+
+## 9. Triage the review — `--auto-merge` only
+
+Collect whatever landed on the pull request, from the advisory checks of step 8 or from a human who
+commented early. Reviewers that post on lines leave *review comments*, not issue comments, and the
+two are read separately — a triage that only reads one of them silently drops half the remarks:
+
+```
+gh api repos/{owner}/{repo}/pulls/<number>/comments    # inline, line by line
+gh pr view <number> --json reviews,comments            # pull-request level
+```
+
+**Nothing came back is a possible outcome**, and it is not an approval: it is a missing opinion. Skip
+to step 10 and write it there as an absence.
+
+Every remark lands in exactly one of three outcomes. **The criterion is written down on purpose**:
+left to a feeling, "important" drifts from one iteration to the next, and nobody can tell afterwards
+whether a remark was weighed or skipped.
+
+| Outcome | When |
+|---|---|
+| **Fix now** | it contradicts a rule in `.claude/rules/`; **or** it shows a concrete failure path — inputs leading to a wrong result — in code this ticket touches; **or** it bears on a Definition of Done box this ticket claims to tick |
+| **Ticket** | correct, but outside this ticket's Definition of Done. It goes through step 11 |
+| **Reject** | the reviewer lacked context and the code is right as it stands. **Write the reason.** A silent rejection is indistinguishable from an oversight |
+
+Then at most `--max-review-passes` fix passes. One pass is: fix, push, and wait for the checks again
+at step 8. When the ceiling is reached, **whatever is still in "fix now" becomes a ticket** rather
+than a blocker — the choice is deliberate, and it buys "nothing is lost" rather than "nothing lands
+unreviewed". Say which of the two you are giving up, in the report and in the final message.
+
+*One thing to expect.* Some automated reviewers skip a pull request they have already commented on,
+so the second pass may get no new review at all — note its absence, do not wait for it as a
+condition for going on.
+
+## 10. Report on the ticket page
+
+Append to the **body of the Notion page**, in French — not the `Commentaires` property.
+
+What a report carries is on « Rédiger un ticket ». Two things that page cannot know about this
+project, and they are the ones that get skipped:
+
+- **the test results**: how many tests, in which files, and the proof that they bite (which
+  behaviour you broke, which tests fell);
+- **a coverage snapshot** from `<your-coverage-command>`: before → after, per touched file, plus the
+  global figure. If the project measures no coverage, say that once — an absent section reads like an
+  oversight, a stated absence does not.
+
+Under `--auto-merge`, one more section — **the review and what became of it**. Without it, the merge
+looks like an approval nobody gave:
+
+- the remarks received, and from which check;
+- what was fixed, and in which pass;
+- what left as a ticket, **with the ticket's ID**;
+- what was rejected, with the reason;
+- and, if the review never ran, that it never ran.
+
+## 11. Create the tickets the work revealed
+
+Anything the work turns up that does not belong to this ticket becomes **its own ticket, immediately**
+— a defect too large to fix in passing, an arbitration to be made, a module whose tests are thin, or
+a deliverable that is itself a set of tickets ("define the backlog from spec files").
+
+Write it as « Rédiger un ticket » says. **Say out loud what priority you chose and why**: a defect
+that silently corrupts a save outranks a cosmetic cleanup.
+
+A ticket born of a review remark **quotes the remark that produced it**. That sentence is what makes
+its reason legible in six months, when the pull request has been merged and nobody remembers why the
+ticket exists.
+
+Do not fix them in passing. A ticket that grows sideways stops being reviewable.
+
+## 12. Hand over
+
+Give the user, in French:
+
+- the pull request link and the ticket link;
+- what was done and what was deliberately left out;
+- the tickets created at step 11, with the priority chosen for each and why — and for each one born
+  of a review remark, **the remark that explains it**;
+- anything you are unsure about — this is the last moment where it is cheap.
+
+**Without `--auto-merge`:** set `Statut` to `review in progress`. The iteration ends there; the ticket
+does not, and step 13 closes it whenever the user gets to it.
+
+**With `--auto-merge`:** do not stop here — step 13 runs now, in the same breath, and the handover
+above is the account of an iteration already closed rather than one waiting on you.
+
+## 13. Close the ticket when the pull request is merged
+
+**Nothing polls.** The pull request gets looked at right after step 12, and at the start of the next
+`/go` — step 1. Between the two, the ticket waits. `--auto-merge` does not add polling either: it
+merges instead of waiting for someone else to.
+
+**A merge is the only thing that makes a ticket `done`** — not a green CI, not a review that read
+well, not the absence of comments. It reaches you three ways:
+
+- **The user merged it themselves.** Read the state below and settle the ticket.
+- **The user asks you to merge.** That explicit instruction — never your own initiative, never the
+  standing authorization of step 7 — authorizes the merge and the cleanup below.
+- **`--auto-merge` was passed.** The instruction was given at the invocation, and it covers this
+  iteration only. Check the hard stops first.
+
+**Hard stops. Under `--auto-merge`, any one of these cancels the merge**, and the iteration degrades
+into the handover of step 12 — `Statut` stays `review in progress` and the user is told which stop
+fired. They are mechanical on purpose: none of them is a judgement call that could be argued away in
+the middle of an unattended run.
+
+| Stop | How you know |
+|---|---|
+| a check that judges is not green | step 8 |
+| the pull request cannot merge | `gh pr view <number> --json mergeable,mergeStateStatus` — a conflict is never resolved unattended |
+| a **human** requested changes | `reviewDecision` is `CHANGES_REQUESTED`; an automated reviewer is advisory and does not count here |
+| the Definition of Done is not fully ticked | the ticket is not finished, whatever the diff says |
+| the push landed on `<your-main-branch>` | the anomaly step 7 tells you to watch for |
+
+None of these is the "an important remark is still unfixed" case: that one was settled at step 9 — it
+becomes a ticket and the merge goes ahead.
+
+The merge, and the cleanup that comes with it:
+
+```
+gh pr merge <number> --merge --delete-branch
+git switch <your-main-branch> && git pull
+```
+
+`--delete-branch` deletes the merged branch on `origin` **and** locally, and checks you out onto
+`<your-main-branch>`; the `pull` fast-forwards it onto the merge commit. **Deleting the branch is the default**
+— keep it only if the user asks, by dropping `--delete-branch`. Never force-merge, and never touch a
+branch other than the one under review.
+
+Read the state and write it back:
+
+```
+gh pr view <number> --json state,reviewDecision,url
+```
+
+| `gh` says | `Commentaires` | `Statut` |
+|---|---|---|
+| `OPEN`, no `reviewDecision` | `PR #<n> ouverte — <url>` | `review in progress` |
+| `OPEN`, `APPROVED` | `PR #<n> revue et approuvée — <url>` | `review in progress` |
+| `OPEN`, `CHANGES_REQUESTED` | `PR #<n> revue : changements demandés — <url>` | `review in progress`, and tell the user — this skill does not resume work on its own |
+| `MERGED` | `PR #<n> mergée — <url>` | `done` |
+| `CLOSED`, not merged | `PR #<n> fermée sans merge — <url>` | leave it, and ask the user what happened |
+
+Before setting `done`, check the Definition of Done is fully ticked: a merged pull request under
+unticked boxes means one of the two is lying, and it is worth one sentence to the user rather than a
+silent tick.
+
+**End on a fresh `<your-main-branch>`, ready for the next `/go`.** When you merged on request, the
+two commands above already left you there. When the user merged externally, run
+`git switch <your-main-branch> && git pull` as the last act of closing.
