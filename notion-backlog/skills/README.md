@@ -35,7 +35,7 @@ changes.
    procedure, not your project — and it is written to stop rather than guess if one is left in.
 
    | Placeholder | What it is | Example |
-         |---|---|---|
+   |---|---|---|
    | `<your-notion-database>` | the data source URI of your backlog. Use [this tool](../tools/get_data_source_id.py) to find it | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
    | `<your-main-branch>` | the branch your pull requests target | `main` |
    | `<your-local-checks>` | the commands that must pass before a push | `npm run lint && npm run typecheck && npm test` |
