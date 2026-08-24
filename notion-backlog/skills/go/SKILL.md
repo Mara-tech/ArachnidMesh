@@ -13,15 +13,22 @@ Facts about the backlog — database, language, what this repository adds — ar
 [.claude/rules/notion-tickets.md](../../rules/notion-tickets.md), already in context. How a ticket is
 written is the Notion page it links to, « Rédiger un ticket »; steps 4 and 11 need it.
 
+**This file holds the decisions; the git and CI mechanics are next to it**, in
+[references/pull-request.md](references/pull-request.md) — cutting the branch safely, pushing without
+landing on the base branch, waiting for the checks, collecting the review, merging and cleaning up.
+Steps 5, 7, 8, 9 and 13 send you there. That file is the same on every project and contains nothing
+to fill in.
+
 ## What this file needs before it runs
 
-This skill is a template. Each `<placeholder>` is filled in once, when the skill is copied into a
-project — [skills/README.md](../README.md#how-to-set-this-up) walks through it.
+This skill is a template. The four values below are **the only thing to fill in**, once, when the
+skill is copied into a project — [skills/README.md](../README.md#how-to-set-this-up) walks through
+it. Everything else, `references/` included, is copied as it is.
 
 | Placeholder | What it is | Example |
 |---|---|---|
 | `<your-notion-database>` | the data source URI of the backlog | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
-| `<your-main-branch>` | the branch pull requests target | `main` |
+| `<your-main-branch>` | the branch pull requests target — the **base branch** the reference speaks of | `main` |
 | `<your-local-checks>` | the commands that must pass before a push | `npm run lint && npm run typecheck && npm test` |
 | `<your-coverage-command>` | the command that reports coverage, if the project has one | `npm run coverage` |
 
@@ -160,20 +167,17 @@ have the first slice implemented in the same breath.
 
 ## 5. Branch off `<your-main-branch>`
 
-Always create a new branch from `<your-main-branch>`, never from whatever branch is checked out.
-Create it **`--no-track`**, so its upstream is *not* set to `origin/<your-main-branch>`:
+Always create a new branch from `<your-main-branch>`, never from whatever branch is checked out, and
+create it **`--no-track`**:
 
 ```
 git fetch origin && git switch -c <prefix>/<slug> --no-track origin/<your-main-branch>
 ```
 
-Why `--no-track` is not optional: a branch cut from `origin/<your-main-branch>` normally takes it as
-its upstream, and a repository set to `push.default = upstream` then resolves a bare `git push` to
-**`<your-main-branch>`** and pushes straight onto it — no branch, no pull request, the base branch
-moved. It has happened. `--no-track` leaves the branch with no upstream, so the same slip fails
-loudly (`fatal: no upstream configured`) instead of landing silently; step 7 sets the upstream, once,
-to the right branch. `git config push.default` says whether this repository is exposed — but keep
-`--no-track` either way, it costs nothing on one that never was.
+`--no-track` is not a detail: it is what makes a later slip fail loudly instead of pushing straight
+onto `<your-main-branch>`. Why, in
+[references/pull-request.md](references/pull-request.md#step-5-cutting-the-branch). Step 7 sets the
+upstream, once, to the right branch.
 
 | `Genre` | prefix |
 |---|---|
@@ -207,19 +211,10 @@ all.
 
 Commit message, branch name, PR title and PR body in English. The PR body links the Notion ticket.
 
-Push with an **explicit destination refspec** — never a bare `git push`, whose destination
-`push.default = upstream` can resolve to `<your-main-branch>`:
-
-```
-git push -u origin HEAD:refs/heads/<prefix>/<slug>
-```
-
-`HEAD:refs/heads/<prefix>/<slug>` names the destination branch outright, so it is immune to
-`push.default` and to whatever upstream the branch carries; `-u` then sets that branch as the
-upstream. **Read the push summary before doing anything else**: it must end in `-> <prefix>/<slug>`,
-never `-> <your-main-branch>`. If it names the base branch, you have pushed onto it — stop and tell
-the user; do not try to rewind it yourself, since that needs a force-push to `<your-main-branch>`,
-which the authorization forbids.
+Push with an explicit destination refspec, never a bare `git push`, and **read the push summary
+before doing anything else** — it must name `<prefix>/<slug>`, never `<your-main-branch>`. The
+command, and what to do if it named the base branch, are in
+[references/pull-request.md](references/pull-request.md#step-7-pushing-without-landing-on-the-base-branch).
 
 Two things on the ticket, in the same pass — a commit that lands without them leaves the backlog
 describing a state that no longer exists:
@@ -234,53 +229,28 @@ describing a state that no longer exists:
 ## 8. Wait for every check
 
 Whatever the project has wired to a pull request runs here — a test suite, a build, a type check, a
-linter, an automated code reviewer. **A repository with no checks at all is a legitimate case**:
-there is nothing to wait for, nothing to triage at step 9, and the iteration goes on. But it is
-written down, in the report and in the handover, as "nothing checked this pull request" — the
-distance between "nothing objected" and "nobody was asked" is exactly what the reader needs and
-cannot recover afterwards. Under `--auto-merge` it matters twice over: no human read the diff *and*
-no machine did, and the local run of step 6 does not fill the gap — same tree, same machine, same
-agent.
+linter, an automated code reviewer. How to wait for them, and how to tell a check that **judges**
+from one that merely **advises**, is in
+[references/pull-request.md](references/pull-request.md#step-8-waiting-for-every-check). A red check
+that judges stops the iteration; a red advisory one only deprives you of an opinion.
 
-`gh pr checks` fails while **no** check has registered yet, which is the normal state for a few
-seconds after `gh pr create`. Retry a bounded number of times until one appears — that failure is
-expected, not an incident. It is also what a repository without CI looks like, so bound the retries
-and conclude "no check is configured" rather than waiting forever. Then block until they all
-finish, and read them:
+What belongs here rather than there is what the reader of the ticket needs: **a repository with no
+checks at all is a legitimate case**. There is nothing to wait for, nothing to triage at step 9, and
+the iteration goes on — but it is written down, in the report and in the handover, as "nothing
+checked this pull request". The distance between "nothing objected" and "nobody was asked" is exactly
+what the reader needs and cannot recover afterwards. Under `--auto-merge` it matters twice over: no
+human read the diff *and* no machine did, and the local run of step 6 does not fill the gap — same
+tree, same machine, same agent.
 
-```
-gh pr checks <number> --watch --interval 30
-gh pr checks <number> --json name,workflow,bucket,link
-```
-
-`--watch` returns when every check is done. Do **not** add `--fail-fast`: it exits on the first
-failure, and the point here is to collect every result in one pass. `bucket` is
-`pass`/`fail`/`pending`/`skipping`/`cancel`; exit code 8 means checks are still pending.
-
-**Checks do not all carry the same weight**, and confusing the two kinds stalls iterations that
-should proceed:
-
-| Kind | Red means |
-|---|---|
-| **It judges** — tests, build, type check, linter: anything whose verdict is mechanical | the iteration does not advance. Fix the cause and push again — never work around it, never hand over on a red one |
-| **It advises** — an automated code reviewer: its output is an opinion on the diff, and it is the input to step 9 | you are deprived of an opinion, nothing more. Say so in the report and carry on |
-
-When a check's kind is not obvious from its name, **treat it as one that judges**. Mistaking an
-advisory check for a blocking one costs one question to the user; the reverse merges on a red build.
-
-Without `--auto-merge`, the iteration continues at step 10 as before: the review comments, if any,
-are left for the user.
+Without `--auto-merge`, the iteration continues at step 10: the review comments, if any, are left for
+the user.
 
 ## 9. Triage the review — `--auto-merge` only
 
 Collect whatever landed on the pull request, from the advisory checks of step 8 or from a human who
-commented early. Reviewers that post on lines leave *review comments*, not issue comments, and the
-two are read separately — a triage that only reads one of them silently drops half the remarks:
-
-```
-gh api repos/{owner}/{repo}/pulls/<number>/comments    # inline, line by line
-gh pr view <number> --json reviews,comments            # pull-request level
-```
+commented early. Inline comments and pull-request-level ones are read separately, with the two
+commands in
+[references/pull-request.md](references/pull-request.md#step-9-collecting-what-the-review-left).
 
 **Nothing came back is a possible outcome**, and it is not an approval: it is a missing opinion. Skip
 to step 10 and write it there as an absence.
@@ -299,10 +269,6 @@ Then at most `--max-review-passes` fix passes. One pass is: fix, push, and wait 
 at step 8. When the ceiling is reached, **whatever is still in "fix now" becomes a ticket** rather
 than a blocker — the choice is deliberate, and it buys "nothing is lost" rather than "nothing lands
 unreviewed". Say which of the two you are giving up, in the report and in the final message.
-
-*One thing to expect.* Some automated reviewers skip a pull request they have already commented on,
-so the second pass may get no new review at all — note its absence, do not wait for it as a
-condition for going on.
 
 ## 10. Report on the ticket page
 
@@ -380,7 +346,7 @@ the middle of an unattended run.
 | Stop | How you know |
 |---|---|
 | a check that judges is not green | step 8 |
-| the pull request cannot merge | `gh pr view <number> --json mergeable,mergeStateStatus` — a conflict is never resolved unattended |
+| the pull request cannot merge | `mergeable`/`mergeStateStatus` — a conflict is never resolved unattended |
 | a **human** requested changes | `reviewDecision` is `CHANGES_REQUESTED`; an automated reviewer is advisory and does not count here |
 | the Definition of Done is not fully ticked | the ticket is not finished, whatever the diff says |
 | the push landed on `<your-main-branch>` | the anomaly step 7 tells you to watch for |
@@ -388,25 +354,13 @@ the middle of an unattended run.
 None of these is the "an important remark is still unfixed" case: that one was settled at step 9 — it
 becomes a ticket and the merge goes ahead.
 
-The merge, and the cleanup that comes with it:
+The commands — reading that state, merging, deleting the branch, coming back onto
+`<your-main-branch>` — are in
+[references/pull-request.md](references/pull-request.md#step-13-reading-the-state-merging-cleaning-up).
 
-```
-gh pr merge <number> --merge --delete-branch
-git switch <your-main-branch> && git pull
-```
+Then write the state back on the ticket:
 
-`--delete-branch` deletes the merged branch on `origin` **and** locally, and checks you out onto
-`<your-main-branch>`; the `pull` fast-forwards it onto the merge commit. **Deleting the branch is the default**
-— keep it only if the user asks, by dropping `--delete-branch`. Never force-merge, and never touch a
-branch other than the one under review.
-
-Read the state and write it back:
-
-```
-gh pr view <number> --json state,reviewDecision,url
-```
-
-| `gh` says | `Commentaires` | `Statut` |
+| The pull request is | `Commentaires` | `Statut` |
 |---|---|---|
 | `OPEN`, no `reviewDecision` | `PR #<n> ouverte — <url>` | `review in progress` |
 | `OPEN`, `APPROVED` | `PR #<n> revue et approuvée — <url>` | `review in progress` |
@@ -418,6 +372,4 @@ Before setting `done`, check the Definition of Done is fully ticked: a merged pu
 unticked boxes means one of the two is lying, and it is worth one sentence to the user rather than a
 silent tick.
 
-**End on a fresh `<your-main-branch>`, ready for the next `/go`.** When you merged on request, the
-two commands above already left you there. When the user merged externally, run
-`git switch <your-main-branch> && git pull` as the last act of closing.
+**End on a fresh `<your-main-branch>`, ready for the next `/go`.**
