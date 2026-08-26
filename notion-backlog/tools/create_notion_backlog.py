@@ -74,6 +74,7 @@ PROPERTIES_STEP1 = {
                 {"name": "in progress",        "color": "blue"},
                 {"name": "review in progress", "color": "yellow"},
                 {"name": "done",               "color": "green"},
+{"name": "cancelled", "color": "black"}
             ]
         }
     },
