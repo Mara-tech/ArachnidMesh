@@ -10,6 +10,20 @@ One ticket at a time (usually you can parallelize tickets, but it's easier treat
 Some tickets will create more, others won't. In any case, the goal is to tackle the top priority, and set it to `done`.
 Even with more of your ideas and bug/issues in the middle of the development, You will eventually bring your project to fruition.
 
+## The short way
+
+From the project you want to equip:
+
+```bash
+npx @mara-tech/arachnid-mesh
+```
+
+Tick **Create the Notion database** and it does steps 1 and 7 below for you, hands back the
+`collection://…` URI, and installs the skills and rules configured with it — in one pass. You still
+need steps 3 to 5 first: an integration token, and the two authorizations on the parent page.
+
+Everything below is the same thing by hand, and stays the reference for what the wizard does.
+
 ## Prerequisites
 💡An idea
 
@@ -60,5 +74,6 @@ They exist to show what a filled-in ticket looks like — open one, compare it w
 
 ## Next steps
 - Get the `collection://…` URI of your new backlog with [get_data_source_id.py](get_data_source_id.py) — the rules and skills need it.
+  (`npx @mara-tech/arachnid-mesh` resolves it for you from the backlog URL, or hands it back directly when it created the database.)
 - Want to talk to explain your idea ? Check out [Project instructions](../project/README.md)
 - Want to let a coding agent work on an iteration ? Check out [Skills](../skills/README.md)

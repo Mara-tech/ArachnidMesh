@@ -19,6 +19,7 @@ landing on the base branch, waiting for the checks, collecting the review, mergi
 Steps 5, 7, 8, 9 and 13 send you there. That file is the same on every project and contains nothing
 to fill in.
 
+<!-- arachnid:setup-only -->
 ## What this file needs before it runs
 
 This skill is a template. The four values below are **the only thing to fill in**, once, when the
@@ -31,6 +32,10 @@ it. Everything else, `references/` included, is copied as it is.
 | `<your-main-branch>` | the branch pull requests target — the **base branch** the reference speaks of | `main` |
 | `<your-local-checks>` | the commands that must pass before a push | `npm run lint && npm run typecheck && npm test` |
 | `<your-coverage-command>` | the command that reports coverage, if the project has one | `npm run coverage` |
+
+The installer strips this section once the values are in — a table that lists placeholders next to
+the values that replaced them describes a state that no longer exists.
+<!-- /arachnid:setup-only -->
 
 **A placeholder still present when the skill runs is a setup that was not finished**: say which one
 and stop. Guessing a value here means querying a database that is not the user's, or pushing onto a
@@ -188,7 +193,7 @@ upstream, once, to the right branch.
 | bug | `bugfix/` |
 | déploiement | `chore/` |
 
-`<slug>` is a short kebab-case summary, in English — it is a repository name.
+`<slug>` is a short kebab-case summary, in the repository language — it is a repository name.
 
 ## 6. Implement
 
@@ -212,7 +217,8 @@ only on an explicit instruction — that is step 13, a separate authorization, n
 `--auto-merge` that instruction was given at the invocation; without it, it has not been given at
 all.
 
-Commit message, branch name, PR title and PR body in English. The PR body links the Notion ticket.
+Commit message, branch name, PR title and PR body in the repository language — see
+[.claude/rules/language.md](../../rules/language.md). The PR body links the Notion ticket.
 
 Push with an explicit destination refspec, never a bare `git push`, and **read the push summary
 before doing anything else** — it must name `<prefix>/<slug>`, never `<your-main-branch>`. The
@@ -275,7 +281,8 @@ unreviewed". Say which of the two you are giving up, in the report and in the fi
 
 ## 10. Report on the ticket page
 
-Append to the **body of the Notion page**, in French — not the `Commentaires` property.
+Append to the **body of the Notion page**, in the conversation language — not the `Commentaires`
+property.
 
 What a report carries is on « Rédiger un ticket ». Two things that page cannot know about this
 project, and they are the ones that get skipped:
@@ -312,7 +319,7 @@ Do not fix them in passing. A ticket that grows sideways stops being reviewable.
 
 ## 12. Hand over
 
-Give the user, in French:
+Give the user, in the conversation language:
 
 - the pull request link and the ticket link;
 - what was done and what was deliberately left out;

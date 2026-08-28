@@ -12,9 +12,18 @@ On the other hand, to implement a ticket, a prodecure exists, therefore pointing
 As mentioned in the [skill set up](../skills/README.md#how-to-set-this-up), copy the other files than this README to your project's `.claude/rules/` folder.
 
 ## `language.md`
-It is configured to communicate in French, and code in English. Customize it if you want.
+Two variables to fill in — this file is the **only** place either language is named, so the skills
+speak of « the repository language » and « the conversation language » and never of a specific one.
+Change it here and everything downstream follows.
 
-## `notion-ticket.md`
+1. `<repo-language>` : what gets committed — code, comments, docs, commit messages, pull requests.
+
+   e.g : English
+2. `<chat-language>` : what is a conversation — chat with you, Notion tickets, reports.
+
+   e.g : French
+
+## `notion-tickets.md`
 Do not forget to adapt with your own variables :
 1. `<your-notion-database>` : the database ID of your Notion database. Use [this tool](../tools/get_data_source_id.py) to find it.
 

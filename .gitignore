@@ -1,3 +1,21 @@
 # intellij
 .idea/
 *.iml
+
+# node
+node_modules/
+*.tgz
+npm-debug.log*
+
+# the modules are copied here at pack time, never committed
+cli/modules/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# secrets
+.env
+.env.*

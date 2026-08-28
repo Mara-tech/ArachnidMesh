@@ -1,0 +1,200 @@
+{
+  "id": "notion-backlog",
+  "version": "1.0.0",
+  "name": "Notion backlog",
+  "description": "Use Notion as the backlog, one agent iteration at a time",
+
+  "questions": {
+    "backlogName": {
+      "type": "text",
+      "message": "Backlog name, as it reads in Notion",
+      "example": "Backlog Dharma Project"
+    },
+    "backlogUrl": {
+      "type": "text",
+      "message": "Backlog URL",
+      "example": "https://app.notion.com/p/…"
+    },
+    "dataSourceUri": {
+      "type": "text",
+      "message": "Data source URI of the backlog",
+      "example": "collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef",
+      "hint": "Leave empty to fill it in later — the skill stops rather than guessing"
+    },
+    "ticketPrefix": {
+      "type": "text",
+      "message": "Ticket ID prefix",
+      "example": "DHA"
+    },
+    "ticketPageUrl": {
+      "type": "text",
+      "message": "URL of the « Rédiger un ticket » page",
+      "example": "https://app.notion.com/p/…"
+    },
+    "mainBranch": {
+      "type": "text",
+      "message": "Branch your pull requests target",
+      "default": "git.baseBranch"
+    },
+    "localChecks": {
+      "type": "text",
+      "message": "Commands that must pass before a push",
+      "default": "pkg.localChecks",
+      "example": "npm run lint && npm run typecheck && npm test"
+    },
+    "coverageCmd": {
+      "type": "text",
+      "message": "Command that reports coverage",
+      "default": "pkg.coverage",
+      "hint": "Leave empty if the project measures none — the skill says so in its report"
+    },
+    "repoLang": {
+      "type": "select",
+      "message": "Repository language — code, commits, pull requests, docs",
+      "options": ["English", "French", "Spanish", "German"],
+      "default": "English"
+    },
+    "chatLang": {
+      "type": "select",
+      "message": "Conversation language — chat, Notion tickets and reports",
+      "options": ["French", "English", "Spanish", "German"],
+      "default": "French"
+    },
+    "notionToken": {
+      "type": "password",
+      "secret": true,
+      "message": "Notion integration token",
+      "hint": "Used for this call only, never written to a file"
+    },
+    "notionParentPage": {
+      "type": "text",
+      "message": "URL of the Notion page the backlog goes under",
+      "example": "https://app.notion.com/p/Backlogs-…"
+    },
+    "projectName": {
+      "type": "text",
+      "message": "Project name"
+    },
+    "projectPitch": {
+      "type": "text",
+      "message": "One line describing the project",
+      "example": "LinkedIn is a social network for business people"
+    }
+  },
+
+  "components": [
+    {
+      "id": "go",
+      "label": "/go",
+      "kind": "skill",
+      "description": "run one backlog iteration",
+      "requires": ["notion-rules", "language"],
+      "needs": ["dataSourceUri", "mainBranch", "localChecks", "coverageCmd"],
+      "claudeMd": "claude-md/go.md",
+      "targets": [
+        { "from": "skills/go/SKILL.md", "to": ".claude/skills/go/SKILL.md", "mode": "template" },
+        { "from": "skills/go/references", "to": ".claude/skills/go/references", "mode": "vendor" }
+      ],
+      "settings": {
+        "permissions": {
+          "allow": [
+            "mcp__claude_ai_Notion__notion-fetch",
+            "mcp__claude_ai_Notion__notion-query-data-sources",
+            "mcp__claude_ai_Notion__notion-update-page",
+            "mcp__claude_ai_Notion__notion-create-pages",
+            "Bash(git fetch:*)",
+            "Bash(git switch:*)",
+            "Bash(git branch:*)",
+            "Bash(git status:*)",
+            "Bash(git diff:*)",
+            "Bash(git log:*)",
+            "Bash(git add:*)",
+            "Bash(git commit:*)",
+            "Bash(git pull:*)",
+            "Bash(git push:*)",
+            "Bash(gh pr create:*)",
+            "Bash(gh pr list:*)",
+            "Bash(gh pr view:*)",
+            "Bash(gh pr checks:*)",
+            "Bash(gh api:*)"
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "go-auto",
+      "label": "/go-auto",
+      "kind": "skill",
+      "description": "unattended, for /loop",
+      "requires": ["go"],
+      "claudeMd": "claude-md/go-auto.md",
+      "targets": [
+        { "from": "skills/go-auto", "to": ".claude/skills/go-auto", "mode": "vendor" }
+      ]
+    },
+
+    {
+      "id": "notion-rules",
+      "label": "Notion ticket rules",
+      "kind": "rules",
+      "description": "what the backlog is and how a ticket moves",
+      "needs": ["backlogName", "dataSourceUri", "backlogUrl", "ticketPageUrl", "ticketPrefix"],
+      "targets": [
+        { "from": "rules/notion-tickets.md", "to": ".claude/rules/notion-tickets.md", "mode": "template" }
+      ]
+    },
+
+    {
+      "id": "language",
+      "label": "Language rule",
+      "kind": "rules",
+      "description": "repository language vs conversation language",
+      "needs": ["repoLang", "chatLang"],
+      "targets": [
+        { "from": "rules/language.md", "to": ".claude/rules/language.md", "mode": "template" }
+      ]
+    },
+
+    {
+      "id": "project-instructions",
+      "label": "Claude Project instructions",
+      "kind": "doc",
+      "description": "to work the backlog without the repository",
+      "needs": ["projectName", "projectPitch", "dataSourceUri", "ticketPageUrl"],
+      "targets": [
+        {
+          "from": "project/claude_project_instructions.md",
+          "to": "arachnid-project-instructions.md",
+          "mode": "template"
+        }
+      ]
+    },
+
+    {
+      "id": "create-database",
+      "label": "Create the Notion database",
+      "kind": "action",
+      "description": "schema, relations and sample tickets",
+      "warning": "needs a Notion token",
+      "needs": ["notionToken", "notionParentPage", "backlogName", "ticketPrefix"],
+      "provides": ["dataSourceUri", "backlogUrl"],
+      "action": "notion.createBacklog"
+    }
+  ],
+
+  "placeholders": {
+    "<your-notion-database>": "dataSourceUri",
+    "<your-notion-database-url>": "backlogUrl",
+    "<your-ticket-writing-instructions-notion-page>": "ticketPageUrl",
+    "<TICKET_ID_PREFIX>": "ticketPrefix",
+    "<Backlog Name>": "backlogName",
+    "<your-main-branch>": "mainBranch",
+    "<your-local-checks>": "localChecks",
+    "<your-coverage-command>": "coverageCmd",
+    "<repo-language>": "repoLang",
+    "<chat-language>": "chatLang",
+    "<Project name and very basic presentation>": "projectPitch",
+    "<Project name>": "projectName"
+  }
+}

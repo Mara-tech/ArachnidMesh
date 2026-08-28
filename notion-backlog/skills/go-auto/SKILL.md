@@ -34,7 +34,7 @@ the merge and turns the run into a handover.
 ## What comes back is all the user will read
 
 Only the final report returns to the main conversation — the working context is discarded. Write it
-in French, and make it enough to reconstruct the run without opening anything:
+in the conversation language, and make it enough to reconstruct the run without opening anything:
 
 - the ticket taken, and the reading you acted on;
 - the pull request, and the verdict of every check;

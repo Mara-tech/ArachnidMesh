@@ -11,8 +11,8 @@ priority, how to write a Definition of Done. That page is shared by every backlo
 authority — read it before creating or filling a ticket, and do not restate it here. What follows is
 only what this repository adds to it.
 
-Tickets are written and reported on **in French** — see [language.md](language.md). The code they
-produce is in English.
+Tickets are written and reported on in the **conversation language**; the code they produce is in the
+**repository language**. Which is which is in [language.md](language.md).
 
 ## What this repository adds
 

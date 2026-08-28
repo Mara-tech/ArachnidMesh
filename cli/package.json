@@ -1,0 +1,32 @@
+{
+  "name": "@mara-tech/arachnid-mesh",
+  "version": "0.1.0",
+  "description": "Install and update agent tooling — skills, rules and permissions — into your project",
+  "type": "module",
+  "bin": {
+    "arachnid-mesh": "./src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src",
+    "modules"
+  ],
+  "scripts": {
+    "test": "node --test test/",
+    "prepack": "node scripts/prepack.js",
+    "postpack": "node -e \"require('node:fs').rmSync('modules',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  },
+  "keywords": [
+    "claude-code",
+    "agent",
+    "skills",
+    "notion",
+    "backlog"
+  ],
+  "license": "MIT"
+}
