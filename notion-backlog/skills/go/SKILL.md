@@ -101,12 +101,15 @@ live there.
 
 ## 2. Check it can actually start
 
-Read its `Dépend de` relation. Every ticket it points at must be `done`.
+Read its `Dépend de` relation. Every ticket it points at must be `done` or `cancelled` — a cancelled
+dependency stops blocking, since nothing is coming from it. Say when you cross one rather than
+starting silently: a ticket resting on something the user has since dropped is often moot itself, and
+that is the user's to judge, not yours.
 
-If one is not, **the backlog is wrong, not the ticket** — a blocked ticket cannot legitimately be top
-of the queue. Treat it as the anomaly it is: raise the blocking dependency above it, tell the user
-what you reordered and why, then restart at step 1 on the new top ticket. Do not start the blocked
-ticket, and do not quietly slide down to the second-highest and say nothing.
+If one is neither, **the backlog is wrong, not the ticket** — a blocked ticket cannot legitimately be
+top of the queue. Treat it as the anomaly it is: raise the blocking dependency above it, tell the
+user what you reordered and why, then restart at step 1 on the new top ticket. Do not start the
+blocked ticket, and do not quietly slide down to the second-highest and say nothing.
 
 ## 3. Claim it
 
@@ -412,7 +415,7 @@ gh pr view <number> --json state,reviewDecision,url
 | `OPEN`, `APPROVED` | `PR #<n> revue et approuvée — <url>` | `review in progress` |
 | `OPEN`, `CHANGES_REQUESTED` | `PR #<n> revue : changements demandés — <url>` | `review in progress`, and tell the user — this skill does not resume work on its own |
 | `MERGED` | `PR #<n> mergée — <url>` | `done` |
-| `CLOSED`, not merged | `PR #<n> fermée sans merge — <url>` | leave it, and ask the user what happened |
+| `CLOSED`, not merged | `PR #<n> fermée sans merge — <url>` | leave it, and ask the user what happened. `cancelled` only if they answer that the need is gone — never on your own reading of a closed pull request |
 
 Before setting `done`, check the Definition of Done is fully ticked: a merged pull request under
 unticked boxes means one of the two is lying, and it is worth one sentence to the user rather than a

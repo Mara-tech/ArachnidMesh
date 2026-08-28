@@ -14,10 +14,10 @@ The properties that carry meaning
 
 | Property          |                                                                                      |
 |-------------------|--------------------------------------------------------------------------------------|
-| `Statut`          | `todo` → `in progress` → `review in progress` → `done`                               |
+| `Statut`          | `todo` → `in progress` → `review in progress` → `done`; `cancelled` at any point     |
 | `Priorité`        | a number, **highest first**. The next ticket is the top `todo` by this order         |
 | `Genre`           | `feature`, `bug`, `déploiement` — decides the branch prefix                          |
-| `Dépend de`       | must all be `done` before a ticket can start                                         |
+| `Dépend de`       | must all be `done` or `cancelled` before a ticket can start                          |
 | `En rapport avec` | touches the same ground, but does not block                                          |
 | `Description`     | a brief summary                                                                      |
 | `Commentaires`    | single-line plain text. One synthesis sentence at most — reports go in the page body |

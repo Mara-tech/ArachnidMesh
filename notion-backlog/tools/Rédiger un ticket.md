@@ -30,7 +30,7 @@ Quatre conséquences, et elles gouvernent tout le reste de cette page :
 | **Genre** | Oui, si la base en a un | Ce que le ticket est : évolution, correction, déploiement… |
 | **Description** | Oui | Le ticket autoportant : constat, conséquence, Definition of Done |
 | **Corps de la page** | Dès qu'il y a du détail | L'analyse, les options écartées, les références. Reçoit ensuite le rapport d'exécution |
-| **Dépend de** | Si et seulement si bloquant | Les tickets qui doivent être `done` avant que celui-ci puisse commencer |
+| **Dépend de** | Si et seulement si bloquant | Les tickets qui doivent être `done` — ou `cancelled` — avant que celui-ci puisse commencer |
 | **En rapport avec** | Facultatif | Même terrain, aucune contrainte d'ordre |
 | **Tags** | Facultatif | De quoi filtrer. Aucun tag vaut mieux qu'un tag approximatif |
 | **Version** | Facultatif | Le jalon visé — à laisser vide si la base ne suit pas de versions |
@@ -51,6 +51,8 @@ Pas de numéro ni de préfixe dans le titre : l'ID est déjà une propriété, e
 À la création, **toujours** `todo`, sans exception. Un ticket créé directement en `in progress` sort de la file sans que personne ne l'ait pris : il ne sera jamais dépilé, et il ne se verra pas.
 
 La suite ne concerne pas celui qui écrit : `in progress` et `review in progress` appartiennent à l'exécutant, `done` au relecteur.
+
+`cancelled` est la seule autre sortie de la file, et elle appartient au **propriétaire de la backlog** : un ticket y passe quand le besoin a disparu — devenu obsolète, arbitré autrement, ou absorbé par un autre ticket. Ni l'exécutant ni le relecteur ne l'y mettent, et jamais parce que le travail s'est révélé plus dur que prévu : ça, c'est un ticket à éclater, pas à annuler. Dire dans `Commentaires` ce qui l'a rendu caduc, et l'ID de celui qui le remplace s'il y en a un — sans cette phrase, une annulation ne se distingue pas d'un abandon.
 
 ### Priorité
 
@@ -110,7 +112,7 @@ Le corps reçoit ensuite **le rapport d'exécution**, en fin de page — ce qu'i
 
 ### Dépend de, En rapport avec
 
-`Dépend de` est **bloquant**, et rien d'autre n'y entre : le ticket ne peut pas commencer tant que la cible n'est pas `done`. « Ce serait plus confortable après » n'est pas une dépendance.
+`Dépend de` est **bloquant**, et rien d'autre n'y entre : le ticket ne peut pas commencer tant que la cible n'est pas `done` — ou `cancelled`, une dépendance annulée ne bloque plus rien. « Ce serait plus confortable après » n'est pas une dépendance.
 
 >⚠️
 >**Règle de cohérence :** un ticket ne doit jamais avoir une priorité **supérieure** à celle d'un ticket dont il dépend. La file se dépile sur la seule priorité — un ticket bloqué en tête de file est une anomalie qui coûte un aller-retour à celui qui le prend, et qui oblige à réordonner la backlog avant de pouvoir travailler.

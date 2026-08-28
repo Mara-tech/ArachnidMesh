@@ -29,6 +29,11 @@ produce is in English.
     is **weaker** — no human read the diff, and on a repository with no checks wired to its pull
     requests, nothing read it at all. Say which of the two it was, rather than letting a `done` imply
     someone looked.
+- **`cancelled` is the user's call, never yours.** A ticket leaves the queue undelivered only because
+  the user says the need is gone — obsolete, arbitrated the other way, absorbed by another ticket.
+  Never cancel one on your own initiative, and never because it turned out to be harder than it read.
+  Put what made it moot in `Commentaires`, with the ID of whatever replaces it if something does: a
+  `cancelled` with no reason is indistinguishable from a ticket someone gave up on.
 - **`Commentaires` carries the pull request**: its link and its current state, rewritten as that
   state changes. The `/go` skill has the wording.
 

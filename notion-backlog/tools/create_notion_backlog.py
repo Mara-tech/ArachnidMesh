@@ -70,10 +70,11 @@ PROPERTIES_STEP1 = {
     "Statut": {
         "select": {
             "options": [
-                {"name": "todo",        "color": "gray"},
+                {"name": "todo",               "color": "gray"},
                 {"name": "in progress",        "color": "blue"},
                 {"name": "review in progress", "color": "yellow"},
                 {"name": "done",               "color": "green"},
+                {"name": "cancelled",          "color": "red"},
             ]
         }
     },
@@ -288,7 +289,7 @@ class NotionBacklogCreator:
   3. Créer vos vues :
        • "À faire"  : Statut = todo        | Tri Priorité ↓
        • "En cours" : Statut = in progress  | Tri Modifié le ↓
-       • "Critique" : Priorité ≥ 4000 ET Statut ≠ done
+       • "Critique" : Priorité ≥ 4000 ET Statut ∉ {done, cancelled}
   4. C'est parti ! 🚀
 """)
 
