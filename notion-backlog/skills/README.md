@@ -30,9 +30,13 @@ changes.
 
 1. Create or locate the `.claude/` folder at the root of your project
 2. There, create a `skills/` and a `rules/` folder
-3. Copy `go/`, and if you want `go-auto/`, under your project's `.claude/skills/`
+3. Copy `go/`, and if you want `go-auto/`, under your project's `.claude/skills/`.
+   Copy `go/references/` along with it — it holds the git and CI mechanics, which are the same on every
+   project and have nothing to fill in.
 4. **Fill in the placeholders of `go/SKILL.md`.** The skill is a template — it describes the
    procedure, not your project — and it is written to stop rather than guess if one is left in.
+   They are the only thing to edit, they are listed in one table at the top of the file, and there
+   are four of them:
 
    | Placeholder | What it is | Example |
    |---|---|---|
