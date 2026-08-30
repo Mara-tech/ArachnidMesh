@@ -48,9 +48,20 @@ Two entry points, one procedure:
   `review in progress`. `--auto-merge` makes it go through to the merge.
 - **`/go-auto`** (`.claude/skills/go-auto/SKILL.md`) runs the same thing in an isolated context and
   always goes through to the merge. It is the one meant for `/loop`; only its report comes back.
+  `--until=<TICKET_ID_PREFIX>-n` chains iterations until that ticket reaches the top of the queue,
+  then stops without taking it.
 
-**Only the user starts an iteration, by typing `/go` or `/go-auto`.** Never begin one on your own
-initiative, even when the next ticket is obvious and the backlog is right there.
+**An iteration only ever starts on an explicit request from the user** — typed as `/go` or
+`/go-auto`, or asked in words. **Never on your own initiative**, even when the next ticket is obvious
+and the backlog is right there: not because the queue is long, not because the previous iteration
+went well, not because nobody is watching.
+
+The rule is about **initiative, not execution**, and the two are easily conflated.
+`disable-model-invocation: true` on both skills would enforce « the model never runs one », which
+also refuses « run them for me » said in a sentence — so an explicit request, about work the user had
+no wish to arbitrate, would have no way through. The flag is therefore off on `/go-auto`, the
+unattended entry point built to be chained, and stays on for `/go`, where the human who would type
+it is present by definition. What guards the initiative is this paragraph, not the flag.
 
 Anything found along the way that does not belong to the ticket in hand becomes its own ticket rather
 than a remark that gets lost, or a fix smuggled into an unrelated pull request.

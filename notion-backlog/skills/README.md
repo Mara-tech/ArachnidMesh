@@ -22,6 +22,10 @@ Be ready to give max autonomy to the IA. Will you be confident enough ?
 This is the `/go --auto-merge` which will run in sequence.
 You better have a large plan 🤑, otherwise you can still use `/loop 3 times /go-auto` to chain 3 tickets in one prompt.
 
+With option `--until=<TICKET_ID_PREFIX>-n`, one invocation chains iterations by itself until that ticket reaches the top
+of the queue, then stops without taking it. It is a marker rather than a count, so the tickets each iteration creates
+along the way are absorbed too.
+
 ## How to set this up
 
 Paths below are Claude Code's : `.claude/` at the root of your project, `skills/` and `rules/` inside it, and

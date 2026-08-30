@@ -1,6 +1,6 @@
 {
   "id": "notion-backlog",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Notion backlog",
   "description": "Use Notion as the backlog, one agent iteration at a time",
 
@@ -128,6 +128,7 @@
       "kind": "skill",
       "description": "unattended, for /loop",
       "requires": ["go"],
+      "needs": ["ticketPrefix"],
       "claudeMd": "claude-md/go-auto.md",
       "targets": [
         { "from": "skills/go-auto", "to": ".claude/skills/go-auto", "mode": "vendor" }

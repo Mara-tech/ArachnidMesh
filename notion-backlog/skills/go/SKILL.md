@@ -111,6 +111,12 @@ LIMIT 1
 Fetch the page to read its body, not just its properties: the Definition of Done and the details
 live there.
 
+**Every query above selects `userDefined:ID`, and it is an integer.** The column is Notion's
+`auto_increment_id`, exposed to SQL as `INTEGER`, so a ticket is filtered by `= 33` — never by the
+displayed `<id>-33`. The string form is not an error: it returns zero rows, which reads exactly like
+« that ticket does not exist ». The ID is selected here because every later step designates the
+ticket by it, and because `/go-auto --until` compares the top of the queue against its marker.
+
 ## 2. Check it can actually start
 
 Read its `Dépend de` relation. Every ticket it points at must be `done` or `cancelled` — a cancelled
@@ -155,16 +161,16 @@ If the user accepts, and only then:
    those tickets, `Dépend de` loses the parent and gains the **last** child. This is the expensive
    step to forget — the parent goes `done` on the spot, so those tickets would look startable while
    the work they are waiting for has not begun.
-5. **Close the parent.** `Statut` to `done`, `Commentaires` to `Éclaté en <id>-66 et <id>-67` — the IDs
-   spelled out — and a short note in the body saying why it was cut and what went where. Its
-   Definition of Done stays unticked: it moved into the children. **This is the one `done` that does
-   not follow a merge.**
+5. **Close the parent.** `Statut` to `done`, `Commentaires` saying it was split and naming both
+   children — the IDs spelled out — and a short note in the body saying why it was cut and what went
+   where. Its Definition of Done stays unticked: it moved into the children. **This is the one
+   `done` that does not follow a merge.**
 
 Worked example, **PROJ-42** at priority 100 split in two:
 
 | | `Priorité` | `Dépend de` | `Statut` |
 |---|---|---|---|
-| **PROJ-42**, the parent | 100 | unchanged | `done`, `Commentaires` = `Éclaté en PROJ-66 et PROJ-67` |
+| **PROJ-42**, the parent | 100 | unchanged | `done`, `Commentaires` naming the split into PROJ-66 and PROJ-67 |
 | **PROJ-66**, first child | 101 | PROJ-42 | `todo` |
 | **PROJ-67**, second child | 100 | PROJ-66 | `todo` |
 | whatever depended on PROJ-42 | unchanged | PROJ-42 → **PROJ-67** | unchanged |
@@ -232,8 +238,10 @@ describing a state that no longer exists:
   `Description` property on most tickets, the page body on the others. Tick what is true and nothing
   more — an unticked box is the honest signal that the ticket is not finished, and a ticked one is a
   claim someone will trust without re-checking.
-- **Point `Commentaires` at the pull request**: `PR #<n> ouverte — <url>`. One line, rewritten from
-  then on rather than appended to; step 13 keeps it current.
+- **Point `Commentaires` at the pull request**: one line, `PR #<n> <state> — <url>`, where
+  `<state>` says in a word or two where the pull request stands — here, that it is open. It is
+  written in the conversation language, and step 13 tabulates the five it can take. The line is
+  rewritten from then on rather than appended to; step 13 keeps it current.
 
 ## 8. Wait for every check
 
@@ -262,7 +270,9 @@ commands in
 [references/pull-request.md](references/pull-request.md#step-9-collecting-what-the-review-left).
 
 **Nothing came back is a possible outcome**, and it is not an approval: it is a missing opinion. Skip
-to step 10 and write it there as an absence.
+to step 10 and write it there as an absence. Expect it on a second pass in particular: an automated
+reviewer commonly skips a pull request that already carries one of its own comments, so a fix pass
+often gets no new review at all. Note the absence and carry on — never wait for it as a condition.
 
 Every remark lands in exactly one of three outcomes. **The criterion is written down on purpose**:
 left to a feeling, "important" drifts from one iteration to the next, and nobody can tell afterwards
@@ -325,6 +335,9 @@ Give the user, in the conversation language:
 - what was done and what was deliberately left out;
 - the tickets created at step 11, with the priority chosen for each and why — and for each one born
   of a review remark, **the remark that explains it**;
+- **the top of the queue as this iteration leaves it**: the ticket ID, its priority, and whether this
+  iteration is what created it. One query, made once, that turns « do I run this again? » into a
+  decision instead of a question;
 - anything you are unsure about — this is the last moment where it is cheap.
 
 **Without `--auto-merge`:** set `Statut` to `review in progress`. The iteration ends there; the ticket
@@ -368,15 +381,18 @@ The commands — reading that state, merging, deleting the branch, coming back o
 `<your-main-branch>` — are in
 [references/pull-request.md](references/pull-request.md#step-13-reading-the-state-merging-cleaning-up).
 
-Then write the state back on the ticket:
+Then write the state back on the ticket. `Commentaires` keeps the shape step 7 gave it —
+`PR #<n> <state> — <url>`, one line, rewritten rather than appended to — and only `<state>` moves.
+**The shape is what stays constant, the wording is not**: `<state>` is written in the conversation
+language, while `PR #<n>` and the link are what step 1 recognises the line by on the next iteration.
 
-| The pull request is | `Commentaires` | `Statut` |
+| The pull request is | `<state>` says | `Statut` |
 |---|---|---|
-| `OPEN`, no `reviewDecision` | `PR #<n> ouverte — <url>` | `review in progress` |
-| `OPEN`, `APPROVED` | `PR #<n> revue et approuvée — <url>` | `review in progress` |
-| `OPEN`, `CHANGES_REQUESTED` | `PR #<n> revue : changements demandés — <url>` | `review in progress`, and tell the user — this skill does not resume work on its own |
-| `MERGED` | `PR #<n> mergée — <url>` | `done` |
-| `CLOSED`, not merged | `PR #<n> fermée sans merge — <url>` | leave it, and ask the user what happened. `cancelled` only if they answer that the need is gone — never on your own reading of a closed pull request |
+| `OPEN`, no `reviewDecision` | that it is open | `review in progress` |
+| `OPEN`, `APPROVED` | that it was reviewed and approved | `review in progress` |
+| `OPEN`, `CHANGES_REQUESTED` | that the review requested changes | `review in progress`, and tell the user — this skill does not resume work on its own |
+| `MERGED` | that it was merged | `done` |
+| `CLOSED`, not merged | that it was closed without being merged | leave it, and ask the user what happened. `cancelled` only if they answer that the need is gone — never on your own reading of a closed pull request |
 
 Before setting `done`, check the Definition of Done is fully ticked: a merged pull request under
 unticked boxes means one of the two is lying, and it is worth one sentence to the user rather than a
