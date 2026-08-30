@@ -14,7 +14,7 @@
     "modules"
   ],
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test",
     "prepack": "node scripts/prepack.js",
     "postpack": "node -e \"require('node:fs').rmSync('modules',{recursive:true,force:true})\""
   },
