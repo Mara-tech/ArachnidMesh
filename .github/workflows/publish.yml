@@ -1,0 +1,92 @@
+name: Publish
+
+# Publishing is driven by a tag: `npm version <patch|minor|major>` inside cli/,
+# then push the tag. The workflow refuses to publish if the tag and
+# cli/package.json disagree, so the tag is always the source of truth.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run every check and pack the tarball, but do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Check the tag matches cli/package.json
+        if: github.event_name == 'push'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag=$tag package.json=$pkg"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match cli/package.json ($pkg)"
+            exit 1
+          fi
+
+      - name: Check the version is not already on npm
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "::error::$name@$version is already published — bump the version"
+            exit 1
+          fi
+          echo "$name@$version is free to publish"
+
+      # Same guard as CI: prepack bundles the root modules into cli/modules/,
+      # and a package published without them installs but does nothing.
+      - name: Pack and check the modules are bundled
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          tarball=$(ls "$RUNNER_TEMP"/mara-tech-arachnid-mesh-*.tgz)
+          tar -tzf "$tarball" | sort
+
+          for entry in \
+            package/src/index.js \
+            package/modules/notion-backlog/module.json \
+            package/modules/notion-backlog/skills/go/SKILL.md
+          do
+            tar -tzf "$tarball" | grep -qxF "$entry" \
+              || { echo "::error::missing from the tarball: $entry"; exit 1; }
+          done
+
+      - name: Publish
+        if: github.event_name == 'push' || inputs.dry_run == false
+        # --access public: the package is scoped, and scoped packages are
+        # private by default. --provenance links the tarball to this run.
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry run summary
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: echo "Dry run — every check passed, nothing was published." >> "$GITHUB_STEP_SUMMARY"

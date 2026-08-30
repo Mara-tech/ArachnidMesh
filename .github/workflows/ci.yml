@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# A new push on a branch makes the previous run pointless — drop it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The package declares engines.node >= 18, so 18 stays in the matrix.
+        node: ['18', '20', '22']
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - run: npm ci
+
+      - run: npm test
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install CLI dependencies
+        run: npm ci
+        working-directory: cli
+
+      # `npm pack` runs prepack, which copies the root modules into cli/modules/.
+      # That copy is the fragile part of the release: it is gitignored, so nothing
+      # else in CI would notice if it broke.
+      - name: Build the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+        working-directory: cli
+
+      - name: Check the modules are bundled
+        run: |
+          tarball=$(ls "$RUNNER_TEMP"/mara-tech-arachnid-mesh-*.tgz)
+          echo "tarball: $tarball"
+          tar -tzf "$tarball" | sort
+
+          for entry in \
+            package/src/index.js \
+            package/modules/notion-backlog/module.json \
+            package/modules/notion-backlog/skills/go/SKILL.md
+          do
+            tar -tzf "$tarball" | grep -qxF "$entry" \
+              || { echo "::error::missing from the tarball: $entry"; exit 1; }
+          done
+
+      - name: Check postpack cleaned up
+        run: |
+          test ! -d cli/modules \
+            || { echo "::error::postpack left cli/modules behind"; exit 1; }
+
+      # End-to-end on the published artefact rather than the working tree:
+      # install the tarball, write a component into a throwaway project, and
+      # let `doctor` confirm the result is coherent.
+      - name: Smoke test the packed CLI
+        run: |
+          npm install -g "$(ls "$RUNNER_TEMP"/mara-tech-arachnid-mesh-*.tgz)"
+
+          project="$RUNNER_TEMP/smoke-project"
+          mkdir -p "$project"
+          git -C "$project" init -q
+
+          arachnid-mesh install --yes --project "$project" \
+            --component notion-backlog/language \
+            --set repoLang=English --set chatLang=French
+
+          test -f "$project/.claude/rules/language.md" \
+            || { echo "::error::the rule file was not written"; exit 1; }
+          test -f "$project/.claude/.arachnid.json" \
+            || { echo "::error::the manifest was not written"; exit 1; }
+
+          if grep -q '<repo-language>' "$project/.claude/rules/language.md"; then
+            echo "::error::a placeholder was left unresolved"
+            exit 1
+          fi
+
+          arachnid-mesh doctor --project "$project"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arachnid-mesh-tarball
+          path: ${{ runner.temp }}/mara-tech-arachnid-mesh-*.tgz
+          if-no-files-found: error
+
+  python:
+    name: python tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The Notion helpers ship in the package but nothing imports them, so a
+      # syntax error would only surface in a user's terminal.
+      - name: Byte-compile the Notion helpers
+        run: python -m compileall -q notion-backlog/tools
