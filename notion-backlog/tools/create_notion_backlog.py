@@ -21,7 +21,7 @@ Pré-requis :
 
 Usage :
     python3 create_notion_backlog.py \\
-        --name "Backlog Mon Projet" \\
+        --name "Backlog Dharma Project" \\
         --parent-page-id <ID> \\
         --token <TOKEN>
 
@@ -29,7 +29,7 @@ Usage :
 
     # Token dans la variable d'environnement (évite de le saisir à chaque fois) :
     export NOTION_TOKEN=ntn_xxx
-    python3 create_notion_backlog.py --name "Backlog Mon Projet" --parent-page-id <ID>
+    python3 create_notion_backlog.py --name "Backlog Dharma Project" --parent-page-id <ID>
 
     # Mode interactif (sans arguments) :
     python3 create_notion_backlog.py

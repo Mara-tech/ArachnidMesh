@@ -12,10 +12,10 @@ Using Claude, a Project is a tool, along with Artifacts, Code, and simple Chats.
 3. Adapt with your own variables :
    1. `<Project name and very basic presentation>` : one or two lines
 
-      e.g : LinkedIn is a social network for business people
+      e.g : Dharma is a field station network for behavioural research
    2. `<Project name>` : repeat the project name.
 
-      e.g : LinkedIn
+      e.g : Dharma
    3. `<your-notion-database>` : the database ID of your Notion database. Use [this tool](../tools/get_data_source_id.py) to find it.
 
       e.g : `collection://846ba48-d9a4-37c2-98b3-000becc465a1`

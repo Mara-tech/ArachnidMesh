@@ -78,7 +78,7 @@
     "projectPitch": {
       "type": "text",
       "message": "One line describing the project",
-      "example": "LinkedIn is a social network for business people"
+      "example": "Dharma is a field station network for behavioural research"
     }
   },
 

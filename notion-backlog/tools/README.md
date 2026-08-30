@@ -63,10 +63,10 @@ This is a separate authorization from the token above — the token is for the s
     ```
 
     Where:
-    - `<BACKLOG_NAME>` is the name of the backlog you want to create. (e.g. `LinkedIn Backlog`)
+    - `<BACKLOG_NAME>` is the name of the backlog you want to create. (e.g. `Backlog Dharma Project`)
     - `<ID>` is the ID of the parent page (`Backlogs`) you created in step 1 (e.g `9ef3d...42d`), that you can extract from the URL of the page.
     - `<TOKEN>` is the Notion access token you copied in step 3 (e.g `ntn_e30a16...`). It can also be passed through the `NOTION_TOKEN` environment variable.
-    - `<TICKET_ID_PREFIX>` is optional. It is the prefix you want to use for your tickets (e.g `LIN`). If not provided, it will be guessed from the name.
+    - `<TICKET_ID_PREFIX>` is optional. It is the prefix you want to use for your tickets (e.g `DHA`). If not provided, it will be guessed from the name.
 
 8. **Check it landed.** Refresh Notion (`F5`) : your backlog now sits under `Backlogs`, and it holds **three sample tickets**.
 They exist to show what a filled-in ticket looks like — open one, compare it with [Rédiger un ticket](Rédiger%20un%20ticket.md), then **delete all three**. Your backlog is meant to start empty, so that the first ticket you dequeue is your own.

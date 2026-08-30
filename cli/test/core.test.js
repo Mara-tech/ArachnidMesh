@@ -26,9 +26,9 @@ test('render leaves runtime placeholders alone', () => {
 
 test('render substitutes the longest token first', () => {
   const source = '<Project name> — <Project name and very basic presentation>';
-  const { content } = render(source, PLACEHOLDERS, { projectName: 'LinkedIn', projectPitch: 'a network' });
+  const { content } = render(source, PLACEHOLDERS, { projectName: 'Dharma', projectPitch: 'a station network' });
 
-  assert.equal(content, 'LinkedIn — a network');
+  assert.equal(content, 'Dharma — a station network');
 });
 
 test('render reports a missing answer instead of blanking the placeholder', () => {
@@ -192,12 +192,12 @@ test('extractId refuses what is not an id', () => {
 
 test('a prefix is derived from initials, ASCII only', () => {
   assert.equal(makePrefix('Backlog Best Project Ever'), 'BBPE');
-  assert.equal(makePrefix('Mon Projet'), 'MP');
-  assert.equal(makePrefix('Éléphant Rosé'), 'ER');
+  assert.equal(makePrefix('Dharma Project'), 'DP');
+  assert.equal(makePrefix('Dharma Éveil'), 'DE');
 });
 
 test('a typed prefix is sanitised the same way a derived one is', () => {
   assert.equal(normalisePrefix('PRJ-x', 'ignored'), 'PRJX');
-  assert.equal(normalisePrefix('', 'Mon Projet'), 'MP');
-  assert.equal(normalisePrefix('!!!', 'Mon Projet'), 'MP');
+  assert.equal(normalisePrefix('', 'Dharma Project'), 'DP');
+  assert.equal(normalisePrefix('!!!', 'Dharma Project'), 'DP');
 });
