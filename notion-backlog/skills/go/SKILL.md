@@ -1,6 +1,6 @@
 ---
 name: go
-description: Run one iteration of the Notion backlog — take the highest-priority todo ticket, split it first if it is too big to deliver in one pass, implement it on a branch, open the pull request, report on the ticket page, hand it over for review, and close it once the pull request is merged. Accepts --auto-merge to carry on through the merge instead of stopping at the handover, and --max-review-passes=N to cap the fix passes over the review comments.
+description: Run one iteration of the Notion backlog — take the highest-priority todo ticket, or the one named with --ticket=<id>-n, split it first if it is too big to deliver in one pass, implement it on a branch, open the pull request, report on the ticket page, hand it over for review, and close it once the pull request is merged. Accepts --auto-merge to carry on through the merge instead of stopping at the handover, and --max-review-passes=N to cap the fix passes over the review comments.
 disable-model-invocation: true
 ---
 
@@ -49,6 +49,7 @@ anything** — an iteration that merges when the user expected a handover is not
 | Flag | Effect | Default |
 |---|---|---|
 | *(none)* | stop at the handover, step 12. The ticket waits in `review in progress` for a human | — |
+| `--ticket=<id>-n` | take that ticket instead of the highest-priority one, step 1 | the top of the queue |
 | `--auto-merge` | wait for every check, triage the review, fix, merge, set `done`, end on `<your-main-branch>` | off |
 | `--max-review-passes=N` | ceiling on fix passes over review comments. `0` reads and records without fixing. **Ignored without `--auto-merge`** | `1` |
 
@@ -59,7 +60,7 @@ a repository starts lying to its readers.
 Anything in `$ARGUMENTS` that is not one of these is not a flag to guess at: say what you did not
 understand and stop, rather than running a mode nobody asked for.
 
-## 1. Take the top ticket
+## 1. Take the ticket
 
 **Close out what is already finished first**, in two passes — the queue has to describe reality
 before it can be trusted to name the next ticket.
@@ -98,7 +99,7 @@ For each one, look for its branch (`git branch -a --list '*<slug>*'`) and its pu
 **When in doubt, hand back rather than guess.** A half-finished ticket picked up wrongly costs more
 than one returned to the user with a description of what was found.
 
-Then take the top ticket:
+Then take the ticket for this iteration. **Without `--ticket`**, the top of the queue:
 
 ```sql
 SELECT "userDefined:ID", "Titre", "Genre", "Priorité", "Dépend de", "Description", url
@@ -107,6 +108,20 @@ WHERE "Statut" = 'todo'
 ORDER BY "Priorité" DESC
 LIMIT 1
 ```
+
+**With `--ticket=<id>-n`**, that ticket instead of the top of the queue:
+
+```sql
+SELECT "userDefined:ID", "Titre", "Genre", "Priorité", "Dépend de", "Description", url
+FROM "<your-notion-database>"
+WHERE "userDefined:ID" = <n> AND "Statut" = 'todo'
+```
+
+by its integer, never the displayed `<id>-n` string, for the reason below. An empty result does not
+mean the ticket does not exist — it means the ticket is not `todo`. Fetch it anyway, read its actual
+`Statut`, and say which one: `done` and `cancelled` are finished and there is nothing to take;
+`in progress` and `review in progress` are what the two reconciliation passes above exist to resume,
+not a fresh start under a flag. Stop either way rather than guessing which the user meant.
 
 Fetch the page to read its body, not just its properties: the Definition of Done and the details
 live there.
@@ -128,6 +143,11 @@ If one is neither, **the backlog is wrong, not the ticket** — a blocked ticket
 top of the queue. Treat it as the anomaly it is: raise the blocking dependency above it, tell the
 user what you reordered and why, then restart at step 1 on the new top ticket. Do not start the
 blocked ticket, and do not quietly slide down to the second-highest and say nothing.
+
+**Under `--ticket=<id>-n`, that premise does not hold** — the user named this ticket deliberately,
+priority order or not. A block there is not a backlog anomaly to fix: stop, name the dependency that
+is neither `done` nor `cancelled`, and leave the decision to the user rather than reordering the queue
+or falling back to the top ticket.
 
 ## 3. Claim it
 
