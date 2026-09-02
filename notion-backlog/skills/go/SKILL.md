@@ -58,7 +58,8 @@ one for a ceiling on *conversation turns*, an unrelated counter, and one word fo
 a repository starts lying to its readers.
 
 Anything in `$ARGUMENTS` that is not one of these is not a flag to guess at: say what you did not
-understand and stop, rather than running a mode nobody asked for.
+understand and stop, rather than running a mode nobody asked for. The one exception is a bare
+`<id>-n`, with no `--ticket=` in front of it — read it as `--ticket=<id>-n` all the same.
 
 ## 1. Take the ticket
 
