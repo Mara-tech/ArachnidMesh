@@ -28,5 +28,10 @@
     "notion",
     "backlog"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/Mara-tech/ArachnidMesh",
+    "directory": "cli",
+    "type": "git"
+  }
 }
