@@ -1,6 +1,6 @@
 {
   "name": "@mara-tech/arachnid-mesh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Install and update agent tooling — skills, rules and permissions — into your project",
   "type": "module",
   "bin": {
