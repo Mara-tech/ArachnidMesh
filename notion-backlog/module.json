@@ -1,6 +1,6 @@
 {
   "id": "notion-backlog",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "name": "Notion backlog",
   "description": "Use Notion as the backlog, one agent iteration at a time",
 
@@ -28,8 +28,9 @@
     },
     "ticketPageUrl": {
       "type": "text",
-      "message": "URL of the « Rédiger un ticket » page",
-      "example": "https://app.notion.com/p/…"
+      "message": "URL of the \"Writing a ticket\" page",
+      "example": "https://app.notion.com/p/…",
+      "hint": "Or tick the « Writing a ticket » page component, and the wizard creates it"
     },
     "mainBranch": {
       "type": "text",
@@ -182,6 +183,17 @@
           "mode": "template"
         }
       ]
+    },
+
+    {
+      "id": "ticket-page",
+      "label": "« Writing a ticket » page",
+      "kind": "action",
+      "description": "the Notion page every ticket is written against, created or brought up to date",
+      "warning": "needs a Notion token",
+      "needs": ["notionToken", "notionParentPage"],
+      "provides": ["ticketPageUrl"],
+      "action": "notion.writeTicketPage"
     },
 
     {

@@ -18,7 +18,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { richText, splitDocument, toNotionBlocks } from './markdown.js';
 import { modulesRoot } from './modules.js';
+
+export { richText } from './markdown.js';
 
 const NOTION_VERSION = '2025-09-03';
 const BASE_URL = 'https://api.notion.com/v1';
@@ -79,7 +82,7 @@ const BARE_UUID = /^([0-9a-fA-F]{8})-?([0-9a-fA-F]{4})-?([0-9a-fA-F]{4})-?([0-9a
  * A Notion id out of a URL or a raw id.
  *
  * Anchored at the end of the string: a title slug can contain hex runs
- * (`.../rediger-un-ticket-<id>`), and an unanchored match happily returns a
+ * (`.../writing-a-ticket-<id>`), and an unanchored match happily returns a
  * fragment of the slug.
  */
 export function extractId(raw) {
@@ -181,15 +184,6 @@ export function loadSampleTickets(path = sampleTicketsPath()) {
   return JSON.parse(readFileSync(path, 'utf8')).tickets;
 }
 
-/** Notion caps one text object at 2000 characters: longer content is split. */
-const TEXT_LIMIT = 2000;
-
-export function richText(content) {
-  const chunks = [];
-  for (let i = 0; i < content.length; i += TEXT_LIMIT) chunks.push(content.slice(i, i + TEXT_LIMIT));
-  return (chunks.length ? chunks : ['']).map((chunk) => ({ type: 'text', text: { content: chunk } }));
-}
-
 /** Body lines to blocks: `## ` heading, `- [ ] ` checkbox, `- ` bullet, else a paragraph. */
 export function toBlocks(lines = []) {
   const block = (type, content, extra = {}) => ({
@@ -281,4 +275,190 @@ export async function createBacklog({ token, name, parentPageId, prefix, onProgr
     backlogName: name,
     ticketPrefix: idPrefix,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  « Writing a ticket » — the page the rules and the skills point at          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The page ships with the module and is pushed to Notion from here, so the two
+ * can drift: the user edits nothing, but a newer CLI carries a newer page.
+ *
+ * A standalone Notion page has no properties beyond its title — there is no
+ * metadata field to hide a version in. So the version travels **in the page**,
+ * as the marker in its footer, which is the only thing that survives a round
+ * trip through Notion's block model and stays readable to whoever opens it.
+ */
+const VERSION_MARKER = /arachnid-mesh:writing-a-ticket:v(\d+)/;
+
+/** The version a page declares, or null when it carries no marker at all. */
+export function pageVersion(text) {
+  const match = VERSION_MARKER.exec(String(text ?? ''));
+  return match ? Number(match[1]) : null;
+}
+
+export function ticketPagePath(root = modulesRoot()) {
+  return join(root, 'notion-backlog', 'tools', 'writing-a-ticket.md');
+}
+
+/** The shipped page: its title, its version, and the blocks Notion will hold. */
+export function loadTicketPage(path = ticketPagePath()) {
+  const markdown = readFileSync(path, 'utf8');
+  const { title, body } = splitDocument(markdown);
+  const version = pageVersion(markdown);
+
+  if (!title) throw new Error(`${path} has no "# " title line — the Notion page would be untitled.`);
+  if (version === null) {
+    throw new Error(`${path} carries no version marker — expected arachnid-mesh:writing-a-ticket:vN in its footer.`);
+  }
+
+  return { title, version, markdown, blocks: toNotionBlocks(body) };
+}
+
+/**
+ * What to do with a page that already exists — decided before a single call
+ * that writes, and away from the prompting, so it can be read and tested.
+ *
+ * `installed` is the version read off the page in Notion, `null` when it
+ * carries no marker. That last case is the one that matters: an unmarked page
+ * is somebody's own — the manual setup created it by hand — and rewriting it
+ * throws their content away. So it is the one case that defaults to *no*.
+ */
+export function planTicketPage({ shipped, installed }) {
+  if (installed === null) {
+    return {
+      action: 'replace',
+      defaultAnswer: false,
+      message:
+        `That page carries no ArachnidMesh version marker, so it was not written by this wizard. ` +
+        `Updating replaces its whole content with version ${shipped}.`,
+    };
+  }
+  if (installed === shipped) {
+    return { action: 'skip', defaultAnswer: false, message: `Already at version ${installed}.` };
+  }
+  if (installed > shipped) {
+    return {
+      action: 'skip',
+      defaultAnswer: false,
+      message: `The page is at version ${installed}, newer than the ${shipped} this CLI ships — left alone.`,
+    };
+  }
+  return {
+    action: 'replace',
+    defaultAnswer: true,
+    message: `A newer page ships with this CLI: version ${installed} → ${shipped}.`,
+  };
+}
+
+/** Notion takes at most 100 children per call, whether creating or appending. */
+const CHILDREN_LIMIT = 100;
+
+export function batches(items, size = CHILDREN_LIMIT) {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+async function listChildren(token, blockId) {
+  const out = [];
+  let cursor = null;
+
+  do {
+    const query = cursor ? `?page_size=100&start_cursor=${cursor}` : '?page_size=100';
+    const page = await call(token, 'GET', `/blocks/${blockId}/children${query}`);
+    out.push(...(page.results ?? []));
+    cursor = page.has_more ? page.next_cursor : null;
+  } while (cursor);
+
+  return out;
+}
+
+/** Every piece of text a page holds, flattened — enough to find the marker. */
+export function plainText(blocks) {
+  const out = [];
+  const walk = (value) => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== 'object') return;
+    if (typeof value.plain_text === 'string') out.push(value.plain_text);
+    for (const nested of Object.values(value)) walk(nested);
+  };
+  walk(blocks);
+  return out.join('\n');
+}
+
+/**
+ * Replace a page's content: append first, delete after.
+ *
+ * Notion has no « set the children of this block » call, so this is two halves
+ * that can fail between them. Appending first means a failure leaves the old
+ * page plus the new one — ugly, but nothing is lost and running it again
+ * finishes the job. Deleting first would leave an empty page.
+ */
+async function replaceChildren(token, pageId, existing, blocks) {
+  for (const batch of batches(blocks)) {
+    await call(token, 'PATCH', `/blocks/${pageId}/children`, { children: batch });
+  }
+  for (const block of existing) {
+    await call(token, 'DELETE', `/blocks/${block.id}`);
+  }
+}
+
+/**
+ * Create the « Writing a ticket » page, or bring an existing one up to the
+ * version shipped here.
+ *
+ * @param confirm asked before anything is overwritten, with the decision
+ *   `planTicketPage` took; it carries the answer that should be the default.
+ * @returns the answer this action provides — the page URL the rules link to —
+ *   plus what happened, for the caller to report.
+ */
+export async function writeTicketPage({
+  token,
+  parentPageId,
+  pageUrl,
+  page = loadTicketPage(),
+  onProgress = () => {},
+  confirm = async (decision) => decision.defaultAnswer,
+}) {
+  if (pageUrl) {
+    const pageId = extractId(pageUrl);
+
+    onProgress('Reading the page in Notion…');
+    const existing = await listChildren(token, pageId);
+    const installed = pageVersion(plainText(existing));
+    const decision = planTicketPage({ shipped: page.version, installed });
+
+    if (decision.action === 'skip') {
+      return { ticketPageUrl: pageUrl, outcome: 'skipped', version: installed, decision };
+    }
+    if (!(await confirm(decision))) {
+      return { ticketPageUrl: pageUrl, outcome: 'declined', version: installed, decision };
+    }
+
+    onProgress(`Rewriting the page at version ${page.version}…`);
+    await replaceChildren(token, pageId, existing, page.blocks);
+    await call(token, 'PATCH', `/pages/${pageId}`, {
+      properties: { title: { title: richText(page.title) } },
+    });
+
+    return { ticketPageUrl: pageUrl, outcome: 'updated', version: page.version, decision };
+  }
+
+  if (!parentPageId) throw new Error('No page to update and no parent page to create one under.');
+
+  onProgress(`Creating the page “${page.title}”…`);
+  const [first, ...rest] = batches(page.blocks);
+  const created = await call(token, 'POST', '/pages', {
+    parent: { type: 'page_id', page_id: extractId(parentPageId) },
+    properties: { title: { title: richText(page.title) } },
+    children: first ?? [],
+  });
+
+  for (const batch of rest) {
+    await call(token, 'PATCH', `/blocks/${created.id}/children`, { children: batch });
+  }
+
+  return { ticketPageUrl: created.url, outcome: 'created', version: page.version };
 }

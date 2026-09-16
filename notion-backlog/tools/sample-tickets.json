@@ -89,7 +89,7 @@
       "Description": "Constat : les besoins les plus précieux n'ont aucune spécification, et la backlog ne contient aucun ticket pour les livrer — vérifié à la création de la backlog.\nConséquence : rien n'est prêt à être implémenté, et le code écrit sans spécification décidera seul du comportement.\n\n## ✅ Definition of Done\n- [ ] docs/specs/<domaine>/ décrit ce que le produit fait pour le ou les besoins en tête du classement : comportement, règles, données — jamais l'implémentation\n- [ ] Chaque règle porte un identifiant stable <DOMAINE>-n\n- [ ] Les préférences utilisées sont reformulées en comportement et citées\n- [ ] Les questions non tranchées sont écrites comme ouvertes, et posées au propriétaire\n- [ ] Les tickets d'implémentation sont créés dans la backlog, chacun citant le NEED-n et les règles qu'il livre, avec sa priorité et ses dépendances\n- [ ] Hors périmètre : aucun code",
       "body": [
         "## C'est ici que la backlog se déploie",
-        "Ce ticket ne produit pas de fonctionnalité : il produit les tickets qui en produiront. Chacun est rédigé selon « Rédiger un ticket », livrable d'un bloc, et cite ce qu'il sert.",
+        "Ce ticket ne produit pas de fonctionnalité : il produit les tickets qui en produiront. Chacun est rédigé selon « Writing a ticket », livrable d'un bloc, et cite ce qu'il sert.",
         "## À faire",
         "- Partir du besoin en tête du classement, et s'arrêter quand il est spécifié — le suivant fera l'objet d'un autre ticket du même genre.",
         "- Une règle dit ce que l'utilisateur voit et fait, pas les classes ni les bibliothèques qui le réalisent.",

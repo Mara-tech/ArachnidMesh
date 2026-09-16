@@ -27,6 +27,10 @@ A new backlog does not start empty: its first tickets frame the project — the 
 (`NEED`), the owner's preferences (`PREF`), the architecture choices (`ARCH`), then the specifications
 that the rest of the backlog delivers. How far a project takes that is its own call.
 
+How a ticket gets written is not left to taste either. The page that says so — « Writing a ticket » —
+ships with the module, the wizard creates it in Notion, and it carries a version: the day it
+improves, every project it was installed in is offered the newer one.
+
 → [notion-backlog/](notion-backlog/README.md) · manual setup starts at [tools/README.md](notion-backlog/tools/README.md)
 
 ### Code review

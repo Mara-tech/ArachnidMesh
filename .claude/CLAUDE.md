@@ -36,6 +36,10 @@ suite. See `cli/README.md`.
   a pattern over `<…>`.
 - **Modules stay at the root**, browsable, and every module documents a manual install that must keep
   working. The wizard automates that procedure; it does not replace it.
+- **A shipped Notion page carries its own version.** `tools/writing-a-ticket.md` ends on an
+  `arachnid-mesh:writing-a-ticket:vN` marker: it is what the CLI reads back out of Notion to know
+  whether to offer an update. Change the page, bump N — a page whose content moved under a version
+  that did not never reaches anybody.
 - **`.claude/settings.json` is merged, never written over**, and `settings.local.json` is never
   touched. Files marked `template` that the user edited are reported, not overwritten.
 - **No secret is ever written** — not to the manifest, not to settings. A token is asked for only when

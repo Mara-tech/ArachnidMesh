@@ -48,6 +48,30 @@ update. A block written at the project root by an earlier version is taken out o
 whatever you wrote around it stays, and a root `CLAUDE.md` that held nothing else is removed rather
 than left empty.
 
+## The Notion pages it writes
+
+Two components do not write files at all — they call Notion:
+
+- **Create the Notion database** builds the backlog, its relations and its first framing tickets, and
+  hands back the `collection://…` URI the skills need.
+- **« Writing a ticket » page** creates the page the rules and the skills point at, from the markdown
+  shipped in the module, and brings an existing one up to date.
+
+A standalone Notion page has no properties beyond its title, so there is nowhere to hide metadata:
+the page carries its own version, as the `arachnid-mesh:writing-a-ticket:vN` marker in its footer.
+Every run reads that marker back and compares it with the version it ships.
+
+| What it finds | What it does |
+|---|---|
+| the shipped version | nothing, and says so |
+| an older version | asks, **yes by default**, then rewrites the page in place |
+| a newer version | leaves it alone — this CLI is the old one |
+| no marker at all | asks, **no by default**: that page is not one it wrote, and rewriting loses its content |
+
+The rewrite appends the new content before deleting the old, so a call that fails in the middle
+leaves a page holding both rather than an empty one. With `--yes`, each case takes the default above
+without asking.
+
 ## Doctor
 
 `doctor` is the completeness check. It reads the placeholders each module declares and looks for them
