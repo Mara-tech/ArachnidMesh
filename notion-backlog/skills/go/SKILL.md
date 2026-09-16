@@ -219,6 +219,7 @@ upstream, once, to the right branch.
 | feature | `feature/` |
 | bug | `bugfix/` |
 | déploiement | `chore/` |
+| cadrage | `docs/` |
 
 `<slug>` is a short kebab-case summary, in the repository language — it is a repository name.
 
@@ -234,6 +235,14 @@ false confidence. Note which passes you did — they go in the report.
 
 Run `<your-local-checks>` before pushing. Finding a failure here costs one minute; finding it in CI
 costs a round trip.
+
+**A `cadrage` ticket produces documents and decisions, not code** — needs, preferences, architecture,
+specifications, as `.claude/rules/framing.md` describes them when the project has it. Its material is
+the project owner's answers, so **this step is an interview before it is a draft**: ask, reformulate,
+have the reformulation confirmed. Never fill a gap with a plausible answer — a need, a preference or a
+decision written on the owner's behalf is invented, however reasonable it reads. A box that says the
+owner validated something is ticked on the owner's word in this conversation, and on nothing else.
+There is no test to make bite; say so in the report rather than leaving the section out.
 
 ## 7. Commit, push, open the pull request
 

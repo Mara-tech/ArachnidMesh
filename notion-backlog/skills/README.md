@@ -59,9 +59,10 @@ changes.
    skill stop instead of guessing.
 5. Copy `rules/*.md` (all files except for `README.md`) under your `.claude/rules/`, and have a look at
    the [README](../rules/README.md)
-6. Add the `CLAUDE.md` fragments of what you installed: [claude-md/go.md](../claude-md/go.md), and
+6. Add the `CLAUDE.md` fragments of what you installed: [claude-md/go.md](../claude-md/go.md),
    [claude-md/go-auto.md](../claude-md/go-auto.md) **only if you installed `/go-auto`** — a `CLAUDE.md`
-   announcing a command that does not exist sends the agent looking for it.
+   announcing a command that does not exist sends the agent looking for it — and
+   [claude-md/framing.md](../claude-md/framing.md) if you kept `rules/framing.md`.
     1. Replace `<Backlog Name>` with the name of your Notion backlog
        you [should have created previously](../tools/README.md#how-to-set-this-up).
     2. Take a quick look at the paragraph, there might still be some links to adapt.

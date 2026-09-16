@@ -1,6 +1,6 @@
 {
   "id": "notion-backlog",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "name": "Notion backlog",
   "description": "Use Notion as the backlog, one agent iteration at a time",
 
@@ -158,6 +158,18 @@
     },
 
     {
+      "id": "framing",
+      "label": "Framing rule",
+      "kind": "rules",
+      "description": "NEED, PREF, ARCH and specifications — what is authoritative",
+      "requires": ["language"],
+      "claudeMd": "claude-md/framing.md",
+      "targets": [
+        { "from": "rules/framing.md", "to": ".claude/rules/framing.md", "mode": "template" }
+      ]
+    },
+
+    {
       "id": "project-instructions",
       "label": "Claude Project instructions",
       "kind": "doc",
@@ -176,7 +188,7 @@
       "id": "create-database",
       "label": "Create the Notion database",
       "kind": "action",
-      "description": "schema, relations and sample tickets",
+      "description": "schema, relations and the first framing tickets",
       "warning": "needs a Notion token",
       "needs": ["notionToken", "notionParentPage", "backlogName", "ticketPrefix"],
       "provides": ["dataSourceUri", "backlogUrl"],

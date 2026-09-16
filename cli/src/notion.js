@@ -11,12 +11,14 @@
  *     `initial_data_source`, relations point at a `data_source_id`, and the
  *     creation response already carries the `collection://` URI. Which means
  *     creating a backlog no longer needs a second lookup at all.
- *   - the first sample ticket was created `in progress`, contradicting
- *     « À la création, toujours `todo`, sans exception » — the first example a
- *     new user sees taught the opposite of the rule.
  *   - `cancelled` was missing from the status options, though the ticket rules
  *     describe it.
  */
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { modulesRoot } from './modules.js';
 
 const NOTION_VERSION = '2025-09-03';
 const BASE_URL = 'https://api.notion.com/v1';
@@ -137,6 +139,7 @@ const PROPERTIES = {
         { name: 'feature', color: 'green' },
         { name: 'bug', color: 'red' },
         { name: 'déploiement', color: 'purple' },
+        { name: 'cadrage', color: 'blue' },
       ],
     },
   },
@@ -163,73 +166,68 @@ const PROPERTIES = {
 };
 
 /**
- * Sample tickets — every one `todo`, as « Rédiger un ticket » requires, and
- * written the way that page asks: constat, conséquence, Definition of Done.
- * They are the first thing a new user reads, so they teach the rule instead of
- * contradicting it. Priorities are spaced by 500 to leave room to insert.
+ * The first tickets of a new backlog, read from the module rather than written
+ * here: `tools/sample-tickets.json` is shared with create_notion_backlog.py, so
+ * the manual route and the wizard create the same backlog.
+ *
+ * They are not a connection test. They frame the project — needs, preferences,
+ * architecture, specifications — which is the work the queue has to start with.
  */
-const SAMPLE_TICKETS = [
-  {
-    Titre: 'Le projet démarre sans configuration reproductible',
-    Description:
-      "Constat : le dépôt n'a ni dépendances figées ni linter configuré, vérifié à la création de la backlog.\n" +
-      "Conséquence : deux machines ne produisent pas le même résultat, et rien ne cadre les contributions.\n\n" +
-      '## ✅ Definition of Done\n' +
-      '- [ ] Les dépendances sont installables en une commande, à versions figées\n' +
-      '- [ ] Un linter tourne en local et échoue sur une violation introduite exprès\n' +
-      "- [ ] La structure de dossiers est décrite dans le README\n" +
-      '- [ ] Hors périmètre : aucune mise en place de CI dans ce ticket',
-    'Priorité': 5000,
-    Statut: 'todo',
-    Genre: 'feature',
-    Version: '1.0',
-  },
-  {
-    Titre: 'Aucune vérification automatique ne tourne sur les pull requests',
-    Description:
-      "Constat : aucune pull request ne déclenche de contrôle, vérifié à la création de la backlog.\n" +
-      "Conséquence : le skill /go ne peut pas s'appuyer sur un verdict, et une régression passe sans être vue.\n\n" +
-      '## ✅ Definition of Done\n' +
-      '- [ ] Les tests tournent à chaque push sur une pull request\n' +
-      '- [ ] Un test cassé exprès fait échouer la vérification\n' +
-      '- [ ] Le rapport de couverture est publié\n' +
-      '- [ ] Hors périmètre : aucun déploiement automatique',
-    'Priorité': 4500,
-    Statut: 'todo',
-    Genre: 'déploiement',
-    Version: '1.0',
-  },
-  {
-    Titre: "Un visiteur n'a aucune page d'accueil à ouvrir",
-    Description:
-      "Constat : le projet ne sert aucune page, vérifié à la création de la backlog.\n" +
-      "Conséquence : il n'y a rien à montrer, ni à tester de bout en bout.\n\n" +
-      '## ✅ Definition of Done\n' +
-      "- [ ] Une page d'accueil se charge et affiche le nom du projet\n" +
-      '- [ ] Elle est lisible sur mobile comme sur desktop\n' +
-      "- [ ] Un test de bout en bout ouvre la page et vérifie son contenu\n" +
-      '- [ ] Hors périmètre : aucun travail graphique au-delà du strict lisible',
-    'Priorité': 4000,
-    Statut: 'todo',
-    Genre: 'feature',
-    Tags: ['UI'],
-  },
-];
+export function sampleTicketsPath(root = modulesRoot()) {
+  return join(root, 'notion-backlog', 'tools', 'sample-tickets.json');
+}
 
-function toProperties(ticket) {
+export function loadSampleTickets(path = sampleTicketsPath()) {
+  return JSON.parse(readFileSync(path, 'utf8')).tickets;
+}
+
+/** Notion caps one text object at 2000 characters: longer content is split. */
+const TEXT_LIMIT = 2000;
+
+export function richText(content) {
+  const chunks = [];
+  for (let i = 0; i < content.length; i += TEXT_LIMIT) chunks.push(content.slice(i, i + TEXT_LIMIT));
+  return (chunks.length ? chunks : ['']).map((chunk) => ({ type: 'text', text: { content: chunk } }));
+}
+
+/** Body lines to blocks: `## ` heading, `- [ ] ` checkbox, `- ` bullet, else a paragraph. */
+export function toBlocks(lines = []) {
+  const block = (type, content, extra = {}) => ({
+    object: 'block',
+    type,
+    [type]: { rich_text: richText(content), ...extra },
+  });
+
+  return lines
+    .filter((line) => line.trim() !== '')
+    .map((line) => {
+      if (line.startsWith('## ')) return block('heading_2', line.slice(3));
+      if (line.startsWith('- [ ] ')) return block('to_do', line.slice(6), { checked: false });
+      if (line.startsWith('- ')) return block('bulleted_list_item', line.slice(2));
+      return block('paragraph', line);
+    });
+}
+
+const NOT_PROPERTIES = new Set(['key', 'dependsOn', 'body']);
+
+export function toProperties(ticket, pageIds = {}) {
   const props = {};
   for (const [key, value] of Object.entries(ticket)) {
-    if (key === 'Titre') props[key] = { title: [{ type: 'text', text: { content: value } }] };
+    if (NOT_PROPERTIES.has(key)) continue;
+    if (key === 'Titre') props[key] = { title: richText(value) };
     else if (key === 'Priorité') props[key] = { number: value };
     else if (key === 'Statut' || key === 'Genre') props[key] = { select: { name: value } };
     else if (key === 'Tags') props[key] = { multi_select: value.map((name) => ({ name })) };
-    else props[key] = { rich_text: [{ type: 'text', text: { content: value } }] };
+    else props[key] = { rich_text: richText(value) };
+  }
+  if (ticket.dependsOn?.length) {
+    props['Dépend de'] = { relation: ticket.dependsOn.map((dependency) => ({ id: pageIds[dependency] })) };
   }
   return props;
 }
 
 /**
- * Create the backlog database, its relations and its sample tickets.
+ * Create the backlog database, its relations and its first tickets.
  *
  * @returns the answers this action provides — the data source URI and the URL,
  *   which is why ticking this component removes those questions from the
@@ -266,12 +264,15 @@ export async function createBacklog({ token, name, parentPageId, prefix, onProgr
     },
   });
 
-  onProgress('Creating the sample tickets…');
-  for (const ticket of SAMPLE_TICKETS) {
-    await call(token, 'POST', '/pages', {
+  onProgress('Creating the framing tickets…');
+  const pageIds = {};
+  for (const ticket of loadSampleTickets()) {
+    const page = await call(token, 'POST', '/pages', {
       parent: { type: 'database_id', database_id: database.id },
-      properties: toProperties(ticket),
+      properties: toProperties(ticket, pageIds),
+      children: toBlocks(ticket.body),
     });
+    pageIds[ticket.key] = page.id;
   }
 
   return {

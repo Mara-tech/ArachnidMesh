@@ -68,11 +68,11 @@ The chain also ends on:
 - **any hard stop of step 13** — it cancels the merge of the iteration that hit it, and the chain
   with it. One handed-over iteration is a result; chaining past it stacks unattended work nobody has
   read;
-- **an iteration that stops for a split it may not make.** « There is nobody to answer you » leaves
-  that ticket in `todo`, so it is still the top of the queue and still startable: the chain would
-  re-read it, meet the same split, and spin there until the context runs out. It is not a step 13
-  hard stop — those all presuppose a branch — so nothing else in this list catches it. End the chain
-  and name the ticket that needs cutting;
+- **an iteration that stops for a split it may not make, or for answers only the owner can give.**
+  « There is nobody to answer you » leaves that ticket in `todo`, so it is still the top of the queue
+  and still startable: the chain would re-read it, meet the same stop, and spin there until the
+  context runs out. It is not a step 13 hard stop — those all presuppose a branch — so nothing else in
+  this list catches it. End the chain and name the ticket, and what it waits for;
 - **no startable `todo` ticket left**, as under the stop conditions below;
 - **the context running out.** The whole chain runs in one forked context and every iteration adds to
   it, so a long chain will meet that ceiling. Stop while there is still room to write the report, and
@@ -81,7 +81,7 @@ The chain also ends on:
 
 ## There is nobody to answer you
 
-The context is forked: no conversation history, and no one to take a question mid-flight. Two steps
+The context is forked: no conversation history, and no one to take a question mid-flight. Three steps
 of the procedure assume an interlocutor, and they change here rather than being skipped.
 
 - **Step 3 — what you understood of the ticket.** It stops being a question and becomes a line of the
@@ -91,6 +91,10 @@ of the procedure assume an interlocutor, and they change here rather than being 
   become yours because nobody is watching. **Do not split.** Stop the iteration, leave the ticket in
   `todo`, and say where you would have cut it and why. A backlog silently reorganised by an
   unattended run is worse than an iteration that did nothing.
+- **Step 6 — a ticket only the owner can answer.** A `cadrage` ticket, or any ticket whose Definition
+  of Done waits on the owner's validation or decision, is made of answers nobody is here to give.
+  **Do not write them yourself.** Stop before step 5, put the ticket back in `todo`, and say what it
+  needs from the owner.
 
 Everything else runs unchanged, hard stops included: step 13 lists them, and any one of them cancels
 the merge and turns the run into a handover.

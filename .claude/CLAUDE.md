@@ -11,7 +11,7 @@ repository ships.
 Everything is **modular**. A module is a folder at the root with a `module.json`:
 
 ```
-notion-backlog/     the only module today — Notion as a backlog, /go, /go-auto
+notion-backlog/     the only module today — Notion as a backlog, /go, /go-auto, framing (NEED/PREF/ARCH/specs)
   module.json       questions, components, targets, placeholders
 cli/                the wizard that installs modules into a project
 ```

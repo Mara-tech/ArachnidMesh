@@ -23,6 +23,10 @@ wizard automates that procedure rather than replacing it.
 Use Notion as your project backlog, and let a coding agent run one iteration at a time on it —
 `/go` takes the top `todo` ticket, implements it on a branch, opens the pull request and reports back.
 
+A new backlog does not start empty: its first tickets frame the project — the needs ranked by value
+(`NEED`), the owner's preferences (`PREF`), the architecture choices (`ARCH`), then the specifications
+that the rest of the backlog delivers. How far a project takes that is its own call.
+
 → [notion-backlog/](notion-backlog/README.md) · manual setup starts at [tools/README.md](notion-backlog/tools/README.md)
 
 ### Code review

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,7 +8,16 @@ import { render, findUnresolved, stripSetupOnly } from '../src/render.js';
 import { planSettingsMerge } from '../src/settings.js';
 import { resolveRequires } from '../src/select.js';
 import { planQuestions } from '../src/questions.js';
-import { extractId, makePrefix, normalisePrefix } from '../src/notion.js';
+import {
+  extractId,
+  loadSampleTickets,
+  makePrefix,
+  normalisePrefix,
+  richText,
+  toBlocks,
+  toProperties,
+} from '../src/notion.js';
+import { discoverModules } from '../src/modules.js';
 
 const PLACEHOLDERS = {
   '<your-notion-database>': 'dataSourceUri',
@@ -200,4 +209,60 @@ test('a typed prefix is sanitised the same way a derived one is', () => {
   assert.equal(normalisePrefix('PRJ-x', 'ignored'), 'PRJX');
   assert.equal(normalisePrefix('', 'Dharma Project'), 'DP');
   assert.equal(normalisePrefix('!!!', 'Dharma Project'), 'DP');
+});
+
+test('the first tickets obey « Rédiger un ticket »: todo, and never above a dependency', () => {
+  const tickets = loadSampleTickets();
+  const byKey = new Map(tickets.map((ticket) => [ticket.key, ticket]));
+  const seen = new Set();
+
+  for (const ticket of tickets) {
+    assert.equal(ticket.Statut, 'todo', ticket.key);
+    assert.match(ticket.Description, /Definition of Done/, ticket.key);
+    for (const dependency of ticket.dependsOn) {
+      // Created in order: a relation can only point at a page that already exists.
+      assert.ok(seen.has(dependency), `${ticket.key} depends on ${dependency}, created later or missing`);
+      assert.ok(ticket['Priorité'] < byKey.get(dependency)['Priorité'], `${ticket.key} outranks ${dependency}`);
+    }
+    seen.add(ticket.key);
+  }
+
+  const priorities = tickets.map((ticket) => ticket['Priorité']);
+  assert.equal(new Set(priorities).size, priorities.length, 'duplicate priority');
+});
+
+test('every Genre and Tag of the first tickets exists in the schema', async () => {
+  const source = (await import('node:fs')).readFileSync(new URL('../src/notion.js', import.meta.url), 'utf8');
+  for (const ticket of loadSampleTickets()) {
+    assert.match(source, new RegExp(`name: '${ticket.Genre}'`), ticket.Genre);
+    for (const tag of ticket.Tags ?? []) assert.match(source, new RegExp(`name: '${tag}'`), tag);
+  }
+});
+
+test('a ticket becomes properties and blocks Notion accepts', () => {
+  const [needs, preferences] = loadSampleTickets();
+  const props = toProperties(preferences, { needs: 'page-1' });
+
+  assert.deepEqual(props['Dépend de'], { relation: [{ id: 'page-1' }] });
+  assert.equal(props.key, undefined);
+  assert.equal(props.body, undefined);
+
+  const types = toBlocks(needs.body).map((block) => block.type);
+  assert.ok(types.includes('heading_2') && types.includes('bulleted_list_item') && types.includes('paragraph'));
+  assert.deepEqual(toBlocks(['- [ ] done?'])[0].to_do.checked, false);
+});
+
+test('text over the 2000-character Notion limit is split, not truncated', () => {
+  const chunks = richText('x'.repeat(4500));
+  assert.deepEqual(chunks.map((chunk) => chunk.text.content.length), [2000, 2000, 500]);
+});
+
+test('the framing component is declared and its CLAUDE.md fragment exists', () => {
+  const module = discoverModules().find((candidate) => candidate.id === 'notion-backlog');
+  const framing = module.components.find((component) => component.id === 'framing');
+  assert.ok(framing);
+  assert.equal(framing.targets[0].to, '.claude/rules/framing.md');
+  for (const path of [framing.claudeMd, framing.targets[0].from]) {
+    assert.ok(existsSync(join(module.dir, path)), path);
+  }
 });

@@ -35,7 +35,7 @@ Usage :
     python3 create_notion_backlog.py
 """
 
-import os, sys, argparse, re, unicodedata
+import os, sys, argparse, json, re, unicodedata
 from typing import Any
 import requests
 
@@ -85,6 +85,7 @@ PROPERTIES_STEP1 = {
                 {"name": "feature",     "color": "green"},
                 {"name": "bug",         "color": "red"},
                 {"name": "déploiement", "color": "purple"},
+                {"name": "cadrage",     "color": "blue"},
             ]
         }
     },
@@ -141,54 +142,44 @@ def build_relation_properties(db_id: str) -> dict:
     }
 
 
-# ── Tickets d'exemple ─────────────────────────────────────────────────────────
+# ── Premiers tickets ──────────────────────────────────────────────────────────
+#
+# Lus dans sample-tickets.json, partagé avec le CLI : les deux chemins créent la
+# même backlog. Ce ne sont pas des tickets de test : ils cadrent le projet —
+# besoins, préférences, architecture, spécifications.
 
-SAMPLE_TICKETS = [
-    {
-        "Titre": "Configuration du projet et stack technique",
-        "Description": (
-            "Initialiser le projet avec la stack Dharma Project.\n\n"
-            "## ✅ Definition of Done\n"
-            "- [ ] Repo git créé et configuré\n"
-            "- [ ] Dépendances installées\n"
-            "- [ ] Linter configuré\n"
-            "- [ ] Structure de dossiers validée"
-        ),
-        "Priorité": 5000,
-        "Statut":   "in progress",
-        "Genre":    "feature",
-        "Version":  "1.0",
-        "Tags":     ["refactoring"],
-    },
-    {
-        "Titre": "Mise en place de la CI/CD",
-        "Description": (
-            "Configurer le pipeline d'intégration continue.\n\n"
-            "## ✅ Definition of Done\n"
-            "- [ ] Pipeline GitHub Actions fonctionnel\n"
-            "- [ ] Tests exécutés automatiquement à chaque push\n"
-            "- [ ] Rapport de code coverage publié"
-        ),
-        "Priorité": 4500,
-        "Statut":   "todo",
-        "Genre":    "déploiement",
-        "Version":  "1.0",
-    },
-    {
-        "Titre": "Implémenter la page d'accueil",
-        "Description": (
-            "Créer la landing page du projet.\n\n"
-            "## ✅ Definition of Done\n"
-            "- [ ] Design pixel-perfect\n"
-            "- [ ] Responsive (mobile, tablette, desktop)\n"
-            "- [ ] Tests E2E passants"
-        ),
-        "Priorité": 4000,
-        "Statut":   "todo",
-        "Genre":    "feature",
-        "Tags":     ["UI"],
-    },
-]
+SAMPLE_TICKETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample-tickets.json")
+TEXT_LIMIT = 2000  # Notion refuse un objet texte plus long
+
+
+def load_sample_tickets(path: str = SAMPLE_TICKETS_PATH) -> list[dict[str, Any]]:
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)["tickets"]
+
+
+def rich_text(content: str) -> list[dict[str, Any]]:
+    chunks = [content[i:i + TEXT_LIMIT] for i in range(0, len(content), TEXT_LIMIT)] or [""]
+    return [{"type": "text", "text": {"content": chunk}} for chunk in chunks]
+
+
+def to_blocks(lines: list[str]) -> list[dict[str, Any]]:
+    """`## ` titre, `- [ ] ` case à cocher, `- ` puce, le reste un paragraphe."""
+    def block(kind: str, content: str, **extra: Any) -> dict[str, Any]:
+        return {"object": "block", "type": kind, kind: {"rich_text": rich_text(content), **extra}}
+
+    blocks = []
+    for line in lines:
+        if not line.strip():
+            continue
+        if line.startswith("## "):
+            blocks.append(block("heading_2", line[3:]))
+        elif line.startswith("- [ ] "):
+            blocks.append(block("to_do", line[6:], checked=False))
+        elif line.startswith("- "):
+            blocks.append(block("bulleted_list_item", line[2:]))
+        else:
+            blocks.append(block("paragraph", line))
+    return blocks
 
 
 # ── Client ────────────────────────────────────────────────────────────────────
@@ -246,29 +237,33 @@ class NotionBacklogCreator:
         print("   ✅ 'Dépend de' + 'Est une dépendance de' (auto) + 'En rapport avec'")
 
     def step3_create_sample_tickets(self) -> None:
-        print("③ Création des tickets d'exemple…")
-        for ticket in SAMPLE_TICKETS:
-            self._create_page(ticket)
+        print("③ Création des tickets de cadrage…")
+        page_ids: dict[str, str] = {}
+        for ticket in load_sample_tickets():
+            page_ids[ticket["key"]] = self._create_page(ticket, page_ids)
 
-    def _create_page(self, ticket: dict[str, Any]) -> None:
+    def _create_page(self, ticket: dict[str, Any], page_ids: dict[str, str]) -> str:
         props: dict[str, Any] = {}
         for key, val in ticket.items():
             if key == "Titre":
-                props["Titre"] = {"title": [{"type": "text", "text": {"content": val}}]}
-            elif key == "Description":
-                props["Description"] = {"rich_text": [{"type": "text", "text": {"content": val}}]}
+                props["Titre"] = {"title": rich_text(val)}
             elif key == "Priorité":
                 props["Priorité"] = {"number": val}
-            elif key == "Statut":
-                props["Statut"] = {"select": {"name": val}}
-            elif key == "Genre":
-                props["Genre"] = {"select": {"name": val}}
-            elif key == "Version":
-                props["Version"] = {"rich_text": [{"type": "text", "text": {"content": val}}]}
+            elif key in ("Statut", "Genre"):
+                props[key] = {"select": {"name": val}}
             elif key == "Tags":
                 props["Tags"] = {"multi_select": [{"name": t} for t in val]}
-        self._post("/pages", {"parent": {"database_id": self.db_id}, "properties": props})
+            elif key in ("Description", "Version", "Commentaires"):
+                props[key] = {"rich_text": rich_text(val)}
+        if ticket.get("dependsOn"):
+            props["Dépend de"] = {"relation": [{"id": page_ids[d]} for d in ticket["dependsOn"]]}
+        page = self._post("/pages", {
+            "parent":     {"database_id": self.db_id},
+            "properties": props,
+            "children":   to_blocks(ticket.get("body", [])),
+        })
         print(f"   ✅ {ticket['Titre'][:55]}")
+        return page["id"]
 
     def run(self) -> None:
         sep = "─" * 60

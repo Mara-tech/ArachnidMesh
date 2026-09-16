@@ -70,6 +70,14 @@ Ce que le ticket **est**, pas ce qu'il touche — ce dernier, ce sont les `Tags`
 
 Si le besoin n'entre dans aucun genre, c'est en général qu'il n'est pas encore un ticket : c'est une idée, une question, ou trois tâches emmêlées.
 
+`cadrage` a une place à part : le ticket ne livre ni fonctionnalité ni correctif, mais des documents et des décisions — les besoins, les préférences, l'architecture, les spécifications. Sa matière, ce sont les réponses du propriétaire du projet ; il se mène avec lui, et sa Definition of Done porte sa validation.
+
+### Relier le ticket au cadrage
+
+Quand le projet tient des documents de cadrage, **un ticket cite les identifiants qu'il sert** — `NEED-3`, `PREF-7`, `ARCH-2`, les règles de spécification qu'il livre — plutôt que d'en recopier le contenu. Une copie diverge dès que l'original change ; un identifiant, non.
+
+Et on ne les confond pas en écrivant : **un besoin dit ce qui manque et pourquoi, jamais comment y répondre.** « Une application mobile avec des notifications » n'est pas un besoin, c'est une préférence ; le besoin est derrière — « les membres apprennent trop tard les échéances convenues ». Quand un ticket naît d'une solution, remonter au besoin avant de l'écrire.
+
 ### Description
 
 C'est **le ticket lui-même**, celui qu'on doit pouvoir lire sans ouvrir la page. Trois choses, dans cet ordre :

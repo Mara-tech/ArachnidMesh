@@ -8,6 +8,10 @@ This rule briefly indicates that for ticket tasks (read/write), some extended co
 On the first hand, a ticket should be written according to the Notion page instructions, therefore giving the link.
 On the other hand, to implement a ticket, a prodecure exists, therefore pointing to the skill.
 
+`framing.md` is the other side of a ticket: what a project is built from, and in which order of authority — needs
+(`NEED`), preferences (`PREF`), architecture (`ARCH`), specifications, then tests, then code. The first tickets of a
+new backlog produce exactly those documents. It is optional, and it scales: a prototype may keep only a list of needs.
+
 # How to set this up
 As mentioned in the [skill set up](../skills/README.md#how-to-set-this-up), copy the other files than this README to your project's `.claude/rules/` folder.
 
@@ -38,3 +42,8 @@ Do not forget to adapt with your own variables :
 4. `<TICKET_ID_PREFIX>` : the prefix you might have provided when ran the [Notion database script](../tools/README.md#how-to-set-this-up). Otherwise, find it in the Notion database.
 
     e.g : LIN
+
+## `framing.md`
+Nothing to fill in. The paths it lists (`docs/needs.md`, `docs/preferences.md`, `docs/architecture/`, `docs/specs/`)
+are defaults: if your project keeps these documents elsewhere, edit the table — the principle stays. Add the
+[CLAUDE.md fragment](../claude-md/framing.md) with it, so the order of authority is always in context.

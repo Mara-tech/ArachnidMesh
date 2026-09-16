@@ -16,7 +16,7 @@ The properties that carry meaning
 |-------------------|--------------------------------------------------------------------------------------|
 | `Statut`          | `todo` → `in progress` → `review in progress` → `done`; `cancelled` at any point     |
 | `Priorité`        | a number, **highest first**. The next ticket is the top `todo` by this order         |
-| `Genre`           | `feature`, `bug`, `déploiement` — decides the branch prefix                          |
+| `Genre`           | `feature`, `bug`, `déploiement`, `cadrage` — decides the branch prefix               |
 | `Dépend de`       | must all be `done` or `cancelled` before a ticket can start                          |
 | `En rapport avec` | touches the same ground, but does not block                                          |
 | `Description`     | a brief summary                                                                      |
@@ -34,6 +34,10 @@ moins brève qu'il doit fournir.
 Les instructions pour ce genre de demande se situe dans la page Notion : <your-ticket-writing-instructions-notion-page>.
 Pour compléter : Claude vérifie si des tickets en rapport avec ces aspects, et détermine si c'est un doublon, ou si des
 liens `Dépend de` ou `En rapport avec` seront à établir au moment de créer ce ticket.
+Quand l'utilisateur décrit une solution (« une appli avec des notifications »), Claude cherche le besoin qui est derrière
+avant d'écrire : un besoin dit ce qui manque et pourquoi, une préférence dit comment le propriétaire veut y répondre. Si
+le projet tient des documents de cadrage (`NEED-n`, `PREF-n`, `ARCH-n`, règles de spécification), le ticket cite les
+identifiants qu'il sert.
 La priorité pourra être exigée ou demandée par l'utilisateur. Dans le cas où le ticket à créer sera dépendant d'un
 autre, il faudra confronter celle suggérée par rapport aux tickets nécessitant d'être faits avant. L'utilisateur pourra
 toutefois avoir le dernier mot : quoiqu'il en soit, le skill qui dépile les tickets vérifie que tous les tickets

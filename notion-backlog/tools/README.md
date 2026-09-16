@@ -4,7 +4,7 @@ A prioritized ticket backlog is a good way to work with iterations.
 
 
 ## The idea, starting from Scratch
-Start with one ticket, defining roughly your idea.
+Start with one ticket, defining roughly your idea — the backlog creation below writes it for you, as four framing tickets.
 This ticket is not a coding one. At this iteration, we expect it will create more tickets going into more details, and here you cascade.
 One ticket at a time (usually you can parallelize tickets, but it's easier treating sequencially), your backlog evolves.
 Some tickets will create more, others won't. In any case, the goal is to tackle the top priority, and set it to `done`.
@@ -68,8 +68,19 @@ This is a separate authorization from the token above — the token is for the s
     - `<TOKEN>` is the Notion access token you copied in step 3 (e.g `ntn_e30a16...`). It can also be passed through the `NOTION_TOKEN` environment variable.
     - `<TICKET_ID_PREFIX>` is optional. It is the prefix you want to use for your tickets (e.g `DHA`). If not provided, it will be guessed from the name.
 
-8. **Check it landed.** Refresh Notion (`F5`) : your backlog now sits under `Backlogs`, and it holds **three sample tickets**.
-They exist to show what a filled-in ticket looks like — open one, compare it with [Rédiger un ticket](Rédiger%20un%20ticket.md), then **delete all three**. Your backlog is meant to start empty, so that the first ticket you dequeue is your own.
+8. **Check it landed.** Refresh Notion (`F5`) : your backlog now sits under `Backlogs`, and it holds **four framing tickets**, chained by `Dépend de`.
+They are not a connection test to delete — they are the first iterations of your project, the one ticket « defining roughly your idea » described above, cut in four:
+
+    | Priority | Ticket | Produces |
+    |---|---|---|
+    | 5000 | the needs, ranked by value | `docs/needs.md` — `NEED-n` |
+    | 4500 | what the owner wants the product to be | `docs/preferences.md` — `PREF-n` |
+    | 4000 | the structuring technical choices | `docs/architecture/` — `ARCH-n` |
+    | 3500 | the first specifications, and the tickets that deliver them | `docs/specs/` — and your backlog |
+
+    The first one insists on it, and so should you when you answer it : **a need says what is missing and why, never how to answer it.** « A mobile app with notifications » is a preference; the need is behind it.
+    Run them with `/go`, not `/go-auto` : they are an interview, and nobody answers an unattended run.
+    Not every project needs all four — a weekend prototype may stop after the first. Cancelling the others is your call, and [the framing rule](../rules/framing.md) says how much weight each level carries.
 
 
 ## Next steps
