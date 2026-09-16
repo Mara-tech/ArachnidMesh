@@ -7,7 +7,9 @@
       "Statut": "todo",
       "Priorité": 5000,
       "Genre": "cadrage",
-      "Tags": ["documentation"],
+      "Tags": [
+        "documentation"
+      ],
       "dependsOn": [],
       "Description": "⚠️ Se mène avec le propriétaire du projet : les besoins et leur classement sont à lui. À lancer avec /go, pas /go-auto.\n\nConstat : aucun document du dépôt ne dit ce qui manque à qui, ni dans quel ordre ça compte — vérifié à la création de la backlog.\nConséquence : chaque ticket suivant tranche seul ce qui a de la valeur, et la première solution évoquée passe pour un besoin.\n\n## ✅ Definition of Done\n- [ ] docs/needs.md liste les besoins NEED-n, du plus précieux au moins précieux\n- [ ] Chaque besoin dit pour qui, ce qui manque et ce que ça coûte aujourd'hui\n- [ ] Aucun besoin ne nomme un écran, une technologie, un produit ou une fonctionnalité : deux solutions très différentes pourraient répondre à chacun\n- [ ] Les solutions exprimées en chemin sont notées à part, pour le ticket des préférences\n- [ ] Les questions ouvertes sont écrites comme ouvertes\n- [ ] Le propriétaire a validé la liste et le classement\n- [ ] Hors périmètre : aucune préférence, aucun choix technique, aucun code",
       "body": [
@@ -40,8 +42,12 @@
       "Statut": "todo",
       "Priorité": 4500,
       "Genre": "cadrage",
-      "Tags": ["documentation"],
-      "dependsOn": ["needs"],
+      "Tags": [
+        "documentation"
+      ],
+      "dependsOn": [
+        "needs"
+      ],
       "Description": "⚠️ Se mène avec le propriétaire du projet. S'il n'a aucune préférence à poser (outil interne, bibliothèque), c'est à lui d'annuler ce ticket.\n\nConstat : rien ne dit comment le produit doit se présenter et se comporter aux yeux de son propriétaire — vérifié à la création de la backlog.\nConséquence : chaque choix d'apparence ou de comportement est tranché par celui qui l'implémente, et les solutions notées en cadrant les besoins se perdent.\n\n## ✅ Definition of Done\n- [ ] docs/preferences.md liste les préférences PREF-n, chacune avec son niveau : ferme, penchant ou souhaitable\n- [ ] Chaque solution notée pendant le ticket des besoins est reprise en préférence, ou écartée explicitement\n- [ ] Chaque préférence cite les NEED-n qu'elle sert, ou se dit goût assumé\n- [ ] Les points non tranchés sont écrits comme ouverts\n- [ ] Le propriétaire a validé la liste et les niveaux\n- [ ] Hors périmètre : aucun choix de construction (architecture), aucun code",
       "body": [
         "## Préférence, besoin, architecture",
@@ -65,8 +71,12 @@
       "Statut": "todo",
       "Priorité": 4000,
       "Genre": "cadrage",
-      "Tags": ["documentation"],
-      "dependsOn": ["preferences"],
+      "Tags": [
+        "documentation"
+      ],
+      "dependsOn": [
+        "preferences"
+      ],
       "Description": "⚠️ Ticket de décision : l'agent propose et recommande, le propriétaire tranche.\n\nConstat : aucun document ne dit sur quelle plateforme, avec quelle pile ni où vivent les données, ni pourquoi — vérifié à la création de la backlog.\nConséquence : le premier ticket de code fera ces choix en passant, sans les confronter aux besoins ni aux préférences, et les défaire coûtera une réécriture.\n\n## ✅ Definition of Done\n- [ ] docs/architecture/ porte les décisions ARCH-n, chacune avec son statut : proposée, penchant, décidée, remplacée\n- [ ] Chaque décision cite les NEED-n et PREF-n auxquels elle répond\n- [ ] Les options écartées sont écrites avec leur coût réel et la raison de les écarter\n- [ ] Ce qui ne peut pas se trancher sans mesure devient son propre ticket, plutôt qu'une intuition\n- [ ] Seul le propriétaire a fait passer une décision à « décidée »\n- [ ] Hors périmètre : aucun code de production — un prototype jetable pour mesurer est permis, il n'est pas versionné",
       "body": [
         "## Ce qui mérite une décision ici",
@@ -84,8 +94,12 @@
       "Statut": "todo",
       "Priorité": 3500,
       "Genre": "cadrage",
-      "Tags": ["documentation"],
-      "dependsOn": ["architecture"],
+      "Tags": [
+        "documentation"
+      ],
+      "dependsOn": [
+        "architecture"
+      ],
       "Description": "Constat : les besoins les plus précieux n'ont aucune spécification, et la backlog ne contient aucun ticket pour les livrer — vérifié à la création de la backlog.\nConséquence : rien n'est prêt à être implémenté, et le code écrit sans spécification décidera seul du comportement.\n\n## ✅ Definition of Done\n- [ ] docs/specs/<domaine>/ décrit ce que le produit fait pour le ou les besoins en tête du classement : comportement, règles, données — jamais l'implémentation\n- [ ] Chaque règle porte un identifiant stable <DOMAINE>-n\n- [ ] Les préférences utilisées sont reformulées en comportement et citées\n- [ ] Les questions non tranchées sont écrites comme ouvertes, et posées au propriétaire\n- [ ] Les tickets d'implémentation sont créés dans la backlog, chacun citant le NEED-n et les règles qu'il livre, avec sa priorité et ses dépendances\n- [ ] Hors périmètre : aucun code",
       "body": [
         "## C'est ici que la backlog se déploie",
@@ -95,6 +109,29 @@
         "- Une règle dit ce que l'utilisateur voit et fait, pas les classes ni les bibliothèques qui le réalisent.",
         "- Les identifiants de règle ne sont jamais renumérotés ni réutilisés : les tests les citeront.",
         "- Placer les nouveaux tickets entre eux par valeur et par dépendance — jamais au-dessus d'un ticket dont ils dépendent."
+      ]
+    },
+    {
+      "key": "checks",
+      "Titre": "Rien ne dit comment ce projet se vérifie avant un push",
+      "Statut": "todo",
+      "Priorité": 3250,
+      "Genre": "déploiement",
+      "Tags": [
+        "documentation"
+      ],
+      "dependsOn": [
+        "architecture"
+      ],
+      "Description": "Constat : .claude/rules/checks.md, que chaque itération lit avant de pousser, a été installé avec ce que l'outillage a su lire des fichiers de build — c'est-à-dire rien tant que la pile n'était pas choisie. Ses lignes disent « not recorded yet ».\nConséquence : chaque itération repart à la recherche de la commande qui lance les tests, et deux itérations de suite peuvent ne pas lancer la même chose — ou ne rien lancer du tout, et le découvrir en CI.\n\nMaintenant que l'architecture est tranchée, la pile existe : ce ticket monte de quoi vérifier le projet en local et l'écrit une bonne fois.\n\n## ✅ Definition of Done\n- [ ] Une commande lance les tests et passe sur un clone neuf, sans étape implicite\n- [ ] Au moins un test existe et échoue quand on casse volontairement le comportement qu'il couvre\n- [ ] .claude/rules/checks.md nomme cette commande, plus le lint et la couverture si le projet en a\n- [ ] Ce qui n'existe pas encore reste « not recorded yet » plutôt que rempli au jugé\n- [ ] Ce qui se lance à la main en plus des commandes — service à démarrer, variable à exporter — figure dans le même fichier",
+      "body": [
+        "## Pourquoi ce ticket existe",
+        ".claude/rules/checks.md est la mémoire du projet sur la façon dont il se vérifie. Les itérations le complètent au fil de ce qu'elles apprennent, mais il faut bien que quelqu'un l'écrive une première fois — et c'est ici, parce que c'est ici que la pile est connue.",
+        "## À faire",
+        "- Monter le lanceur de tests de la pile décidée en ARCH-n, et le prouver sur un test qui mord.",
+        "- Ajouter le lint et le formatage si la pile en a un d'usage ; ne rien inventer sinon.",
+        "- Écrire les commandes dans .claude/rules/checks.md, telles qu'on les tape.",
+        "- La couverture est facultative : la brancher si c'est bon marché, sinon laisser la ligne dire qu'il n'y en a pas. Une absence annoncée vaut mieux qu'un rapport muet."
       ]
     }
   ]

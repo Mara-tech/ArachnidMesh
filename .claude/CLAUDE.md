@@ -34,6 +34,11 @@ suite. See `cli/README.md`.
   filled at install; runtime ones (`<prefix>`, `<slug>`, `<number>`, `<url>`, `<base-branch>`) belong
   to the agent and must survive. Substitution is driven by the declared `placeholders` map — never by
   a pattern over `<…>`.
+- **The setup asks nobody a technical question.** Which command runs the tests is the project's
+  answer, not the user's: read off the build file when there is one, and left to
+  `.claude/rules/checks.md` — a `seed` file, written once and then owned by the project — when there
+  is not. A question that only a senior developer of an existing codebase could answer has no place
+  in a wizard that runs on day one.
 - **Modules stay at the root**, browsable, and every module documents a manual install that must keep
   working. The wizard automates that procedure; it does not replace it.
 - **A shipped Notion page carries its own version.** `tools/writing-a-ticket.md` ends on an

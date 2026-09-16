@@ -39,9 +39,52 @@ export function stripSetupOnly(content) {
   return content.replace(SETUP_ONLY, '').replace(/\n{3,}/g, '\n\n');
 }
 
+/**
+ * Conditional sections.
+ *
+ * A question a beginner cannot answer on day one — which command runs the
+ * tests, which one reports coverage — must be skippable, and a skipped answer
+ * must still leave a file that reads straight. So the template carries both
+ * wordings and the installer keeps one:
+ *
+ *   <!-- arachnid:if localChecks -->
+ *   Run `<your-local-checks>` before pushing.
+ *   <!-- arachnid:else -->
+ *   No checks are configured yet: find what this project runs, run it, and say
+ *   in the report which commands you used.
+ *   <!-- arachnid:end -->
+ *
+ * The condition is a question key, never an expression — the manifest and the
+ * files it ships stay data. The branch that is dropped is removed before
+ * substitution, so a placeholder inside it is never counted as unresolved. A
+ * block does not nest: two wordings of one sentence is what this is for.
+ */
+const CONDITIONAL =
+  /[^\S\n]*<!--\s*arachnid:if\s+([A-Za-z0-9_.-]+)\s*-->[^\S\n]*\n?([\s\S]*?)(?:[^\S\n]*<!--\s*arachnid:else\s*-->[^\S\n]*\n?([\s\S]*?))?[^\S\n]*<!--\s*arachnid:end\s*-->[^\S\n]*\n?/g;
+
+const answered = (value) => value !== undefined && value !== null && value !== '';
+
+/**
+ * @returns {{content: string, deferred: string[]}} `deferred` lists the keys
+ *   whose "not answered" branch was kept — a setup left for later, not one that
+ *   failed. The wizard and `doctor` say so without calling it an error.
+ */
+export function resolveConditionals(content, answers) {
+  const deferred = [];
+
+  const out = content.replace(CONDITIONAL, (_match, key, whenSet, whenUnset = '') => {
+    if (answered(answers[key])) return whenSet;
+    deferred.push(key);
+    return whenUnset;
+  });
+
+  return { content: out.replace(/\n{3,}/g, '\n\n'), deferred };
+}
+
 export function render(content, placeholders, answers) {
   const unresolved = [];
-  let out = stripSetupOnly(content);
+  const conditionals = resolveConditionals(stripSetupOnly(content), answers);
+  let out = conditionals.content;
 
   // Longest token first, so a placeholder that is a prefix of another cannot
   // eat it — `<Project name>` next to `<Project name and very basic
@@ -61,7 +104,7 @@ export function render(content, placeholders, answers) {
     out = out.split(token).join(String(value));
   }
 
-  return { content: out, unresolved };
+  return { content: out, unresolved, deferred: conditionals.deferred };
 }
 
 /** The declared setup placeholders still present in a rendered file. */

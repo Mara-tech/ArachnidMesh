@@ -43,6 +43,15 @@ Do not forget to adapt with your own variables :
 
     e.g : LIN
 
+## `checks.md`
+Nothing to fill in *at setup* — this one is the exception to the whole page. It holds what the
+project runs before a push and what reports its coverage, and it is written **by the work**: fill in
+what you already know, leave *not recorded yet* on the rest, and `/go` records what it learns as it
+goes. The wizard writes it once and never again, precisely so the project keeps ownership of it.
+
+On a project that starts from nothing this file is entirely empty of commands, and that is a valid
+state: the first ticket that sets the build up is the one that fills it.
+
 ## `framing.md`
 Nothing to fill in. The paths it lists (`docs/needs.md`, `docs/preferences.md`, `docs/architecture/`, `docs/specs/`)
 are defaults: if your project keeps these documents elsewhere, edit the table — the principle stays. Add the

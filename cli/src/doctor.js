@@ -102,6 +102,15 @@ export function diagnose({ projectRoot, modules, manifest }) {
     findings.push({ level: 'warn', key, message: `"${key}" was left unconfigured — run Configure to set it` });
   }
 
+  for (const key of manifest.deferred ?? []) {
+    if (reportedKeys.has(key)) continue;
+    findings.push({
+      level: 'info',
+      key,
+      message: `"${key}" is not recorded yet — the file that wants it says so, and the work fills it in`,
+    });
+  }
+
   const { settings, error } = readSettings(projectRoot);
   if (error) {
     findings.push({ level: 'error', message: `.claude/settings.json is not valid JSON: ${error.message}` });

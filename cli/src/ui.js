@@ -1,8 +1,8 @@
 import { log, note } from '@clack/prompts';
 
-const SYMBOL = { create: '+', update: '~', delete: '-', 'skip-edited': '!', unchanged: '=' };
+const SYMBOL = { create: '+', update: '~', delete: '-', 'skip-edited': '!', kept: '·', unchanged: '=' };
 
-const dim = (s) => `\x1b[2m${s}\x1b[0m`;
+export const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 
 /** Screen 0 — what we found before anything is proposed. */
@@ -11,6 +11,7 @@ export function renderState({ project, modules, manifest, cliVersion }) {
     `${bold('ArachnidMesh')} ${cliVersion}`,
     `${dim('project')}  ${project.root}`,
     `${dim('git')}      ${project.isGit ? `${project.branch} ${dim(`(base: ${project.baseBranch})`)}` : dim('not a git repository')}`,
+    `${dim('code')}     ${describeStack(project)}`,
   ];
 
   const installed = Object.entries(manifest.modules ?? {});
@@ -65,18 +66,51 @@ export function reportLocked(locked, modules) {
   log.info(`Pulled in as dependencies: ${labels.join(', ')}`);
 }
 
-/** Screen 2 — what will be asked, and why. */
-export function renderQuestionPlan(questions, provided) {
-  const lines = questions.map((q) => {
-    const askedFor = q.askedFor?.length > 1 ? dim(`  (needed by ${q.askedFor.join(' and ')})`) : '';
-    return `${q.key}${askedFor}`;
-  });
+/**
+ * What the project itself answers, so the screen can say it out loud.
+ *
+ * Someone starting a project has no build file to read a test command off, and
+ * being told that is the difference between a wizard that skipped a question
+ * and one that seems to have forgotten it.
+ */
+function describeStack(project) {
+  if (project?.stack) return `${project.stack.label} ${dim(`(${project.stack.manifest})`)}`;
+  if (project?.hasCode) return dim('no build file recognised');
+  return dim('nothing yet — a project about to start');
+}
 
-  if (provided.length) {
-    lines.push(dim(`skipped, produced by a selected action: ${provided.join(', ')}`));
+/** Screen 2 — what will be asked, what is not asked, and why. */
+export function renderQuestionPlan(questions, { provided = [], derived = [] } = {}) {
+  const blocks = [];
+
+  if (questions.length) {
+    blocks.push(questions.map((q, index) => `${index + 1}. ${q.message ?? q.key}`).join('\n'));
+  } else {
+    blocks.push('Nothing to ask — everything is already answered.');
   }
 
-  note(lines.join('\n'), `${questions.length} question${questions.length === 1 ? '' : 's'}`);
+  // The questions that are *not* asked matter as much as the ones that are: a
+  // test command is read off the project, and when there is nothing to read,
+  // the file that wanted it says so and the first iteration to learn it fills
+  // it in. Silence here reads as an omission.
+  if (derived.length) {
+    const lines = derived.map((q) => {
+      const value = q.default ? `\`${q.default}\`` : 'not recorded yet — the project fills it in as it learns';
+      return `  ${q.message ?? q.key}: ${value}`;
+    });
+    blocks.push(dim(['Read from your project, not asked:', ...lines].join('\n')));
+  }
+
+  if (provided.length) {
+    blocks.push(dim(`Produced by a selected action, not asked: ${provided.join(', ')}`));
+  }
+
+  blocks.push(dim('Every answer can be changed later — run the wizard again and pick Configure.'));
+
+  const title = questions.length
+    ? `${questions.length} question${questions.length === 1 ? '' : 's'}`
+    : 'Questions';
+  note(blocks.join('\n\n'), title);
 }
 
 /** Screen 3 — the diff, before a single byte is written. */
@@ -98,11 +132,20 @@ export function renderPlan(plan) {
           ? dim(change.legacy ? 'arachnid block moved to .claude/CLAUDE.md' : 'arachnid block')
           : change.action === 'skip-edited'
             ? '\x1b[33medited locally — left alone\x1b[0m'
-            : dim(change.mode ?? '');
+            : change.action === 'kept'
+              ? dim('yours since the install — left as it is')
+              : dim(change.mode ?? '');
     return ` ${symbol}  ${change.path.padEnd(width)}  ${detail}`;
   });
 
   note(lines.join('\n'), 'About to write');
+
+  if (plan.deferred?.length) {
+    log.info(
+      `Not recorded yet: ${plan.deferred.join(', ')}. The files say so in as many words — ` +
+        'the first iteration that learns the answer writes it in.',
+    );
+  }
 
   if (plan.unresolved.length) {
     const byKey = new Map();
