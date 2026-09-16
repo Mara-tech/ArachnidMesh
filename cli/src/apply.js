@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { persistableAnswers, recordComponent, writeManifest } from './manifest.js';
@@ -12,10 +12,18 @@ import { persistableAnswers, recordComponent, writeManifest } from './manifest.j
  */
 export function applyPlan({ projectRoot, plan, selection, answers, manifest, questionCatalogue, cliVersion }) {
   const written = [];
+  const removed = [];
 
   for (const change of plan.changes) {
-    if (change.action !== 'create' && change.action !== 'update') continue;
     const absPath = join(projectRoot, change.path);
+
+    if (change.action === 'delete') {
+      if (existsSync(absPath)) rmSync(absPath, { force: true });
+      removed.push(change);
+      continue;
+    }
+
+    if (change.action !== 'create' && change.action !== 'update') continue;
     mkdirSync(dirname(absPath), { recursive: true });
     writeFileSync(absPath, change.content, 'utf8');
     written.push(change);
@@ -43,5 +51,5 @@ export function applyPlan({ projectRoot, plan, selection, answers, manifest, que
 
   writeManifest(projectRoot, manifest);
 
-  return { written, skipped: plan.skipped };
+  return { written, removed, skipped: plan.skipped };
 }

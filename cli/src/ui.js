@@ -1,6 +1,6 @@
 import { log, note } from '@clack/prompts';
 
-const SYMBOL = { create: '+', update: '~', 'skip-edited': '!', unchanged: '=' };
+const SYMBOL = { create: '+', update: '~', delete: '-', 'skip-edited': '!', unchanged: '=' };
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
@@ -95,7 +95,7 @@ export function renderPlan(plan) {
       change.kind === 'settings'
         ? `+${change.added.length} permission${change.added.length === 1 ? '' : 's'} ${dim('(yours kept)')}`
         : change.kind === 'claudeMd'
-          ? dim('arachnid block')
+          ? dim(change.legacy ? 'arachnid block moved to .claude/CLAUDE.md' : 'arachnid block')
           : change.action === 'skip-edited'
             ? '\x1b[33medited locally — left alone\x1b[0m'
             : dim(change.mode ?? '');

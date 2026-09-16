@@ -46,4 +46,4 @@ Do not forget to adapt with your own variables :
 ## `framing.md`
 Nothing to fill in. The paths it lists (`docs/needs.md`, `docs/preferences.md`, `docs/architecture/`, `docs/specs/`)
 are defaults: if your project keeps these documents elsewhere, edit the table — the principle stays. Add the
-[CLAUDE.md fragment](../claude-md/framing.md) with it, so the order of authority is always in context.
+[`.claude/CLAUDE.md` fragment](../claude-md/framing.md) with it, so the order of authority is always in context.

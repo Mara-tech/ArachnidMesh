@@ -43,13 +43,17 @@ Files come in two modes, declared per target in the module manifest:
 `.claude/settings.json` is **merged, never written over**: arrays are unioned, unknown keys are kept,
 and an existing value always wins. `settings.local.json` is never touched — it is yours.
 
-`CLAUDE.md` gets a block between `<!-- arachnid:<module> -->` markers, replaced in place on update.
+`.claude/CLAUDE.md` gets a block between `<!-- arachnid:<module> -->` markers, replaced in place on
+update. A block written at the project root by an earlier version is taken out on that same run —
+whatever you wrote around it stays, and a root `CLAUDE.md` that held nothing else is removed rather
+than left empty.
 
 ## Doctor
 
 `doctor` is the completeness check. It reads the placeholders each module declares and looks for them
-in every file that was actually written — including `CLAUDE.md` and `.claude/rules/`, which a
-`grep '<your-'` over `.claude/skills/` would miss. It exits non-zero when something is unresolved.
+in every file that was actually written — including `.claude/CLAUDE.md` and `.claude/rules/`, which a
+`grep '<your-'` over `.claude/skills/` would miss. It exits non-zero when something is unresolved, and
+says so when a block is still sitting in a root `CLAUDE.md`.
 
 ## Secrets
 

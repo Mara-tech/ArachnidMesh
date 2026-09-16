@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { findComponent } from './modules.js';
+import { CLAUDE_MD_PATH, LEGACY_CLAUDE_MD_PATH } from './plan.js';
 import { findUnresolved } from './render.js';
 import { readSettings } from './settings.js';
 
@@ -10,7 +11,7 @@ import { readSettings } from './settings.js';
  *
  * This is the replacement for the `grep -rn '<your-' .claude/skills/` the
  * manual setup documents. That grep misses three of the eight setup
- * placeholders: `<Backlog Name>` lives in CLAUDE.md, `<TICKET_ID_PREFIX>` and
+ * placeholders: `<Backlog Name>` lives in .claude/CLAUDE.md, `<TICKET_ID_PREFIX>` and
  * `<your-notion-database-url>` in .claude/rules/. Here the list is the module's
  * own declaration and the scope is every file we actually wrote.
  */
@@ -69,14 +70,26 @@ export function diagnose({ projectRoot, modules, manifest }) {
 
   // CLAUDE.md is written through markers rather than tracked as a file, so it
   // needs its own placeholder pass — this is exactly where `<Backlog Name>`
-  // hides from the documented grep.
-  const claudeMdPath = join(projectRoot, 'CLAUDE.md');
-  if (existsSync(claudeMdPath)) {
-    const content = readFileSync(claudeMdPath, 'utf8');
+  // hides from the documented grep. The root file is the location earlier
+  // versions wrote to: a block still there is a stale duplicate of the one
+  // under `.claude/`, and Update is what moves it.
+  for (const relPath of [CLAUDE_MD_PATH, LEGACY_CLAUDE_MD_PATH]) {
+    const absPath = join(projectRoot, relPath);
+    if (!existsSync(absPath)) continue;
+
+    const content = readFileSync(absPath, 'utf8');
     for (const module of modules) {
       if (!content.includes(`<!-- arachnid:${module.id} -->`)) continue;
+
+      if (relPath === LEGACY_CLAUDE_MD_PATH) {
+        findings.push({
+          level: 'warn',
+          message: `${relPath} still holds the ${module.id} block — run Update to move it to ${CLAUDE_MD_PATH}`,
+        });
+      }
+
       for (const { token, key } of findUnresolved(content, module.placeholders ?? {})) {
-        findings.push({ level: 'error', key, message: `CLAUDE.md still holds ${token} — "${key}" was never answered` });
+        findings.push({ level: 'error', key, message: `${relPath} still holds ${token} — "${key}" was never answered` });
       }
     }
   }
