@@ -25,7 +25,12 @@ Use Notion as your project backlog, and let a coding agent run one iteration at 
 
 A new backlog does not start empty: its first tickets frame the project — the needs ranked by value
 (`NEED`), the owner's preferences (`PREF`), the architecture choices (`ARCH`), then the specifications
-that the rest of the backlog delivers. How far a project takes that is its own call.
+that the rest of the backlog delivers, and the tooling that verifies them. How far a project takes
+that is its own call.
+
+Which means the setup can be run on an empty directory: nothing asks what the project is built with,
+because on day one nobody knows. What the project runs is recorded in `.claude/rules/checks.md` as it
+is learned, by the iterations themselves.
 
 How a ticket gets written is not left to taste either. The page that says so — « Writing a ticket » —
 ships with the module, the wizard creates it in Notion, and it carries a version: the day it

@@ -17,8 +17,9 @@ No global install. Run it from the project you want to equip.
    so you see why they are there.
 4. **Questions** — the union of what the selected components need, **each asked once**. A value two
    components share is asked once, not twice; a value a selected action will produce is not asked at
-   all. Defaults come from the project (git branch, `package.json` scripts) and from your previous
-   answers.
+   all, and a value the project can answer for itself is not asked either. Each question says what it
+   is for, and where to look when you do not know. Defaults come from the project (git branch, build
+   file) and from your previous answers.
 5. **The diff** — every file it would create, update, or leave alone. Nothing is written before you
    confirm.
 
@@ -32,13 +33,30 @@ No global install. Run it from the project you want to equip.
 | `remove` | delete the files a component wrote |
 | `doctor` | check the installation is complete and coherent |
 
+## Nothing technical is asked at install
+
+Starting a project means not knowing yet which language it will be in, let alone which command runs
+its tests. So the wizard does not ask.
+
+- Where there **is** a build file — `package.json`, `pom.xml`, `build.gradle`, `build.sbt`,
+  `pyproject.toml`, `Cargo.toml`, `go.mod` — it reads the commands off it and shows you what it
+  found.
+- Where there is **not**, it writes `.claude/rules/checks.md` saying *not recorded yet*, and the
+  agent fills it in the first time it learns the answer. A backlog created by this CLI also gets a
+  ticket for exactly that, next to the framing ones.
+
+That file is the project's from the moment it exists: the wizard never rewrites it.
+
 ## What it will not overwrite
 
-Files come in two modes, declared per target in the module manifest:
+Files come in three modes, declared per target in the module manifest:
 
 - **`vendor`** — no placeholder, identical on every project. Overwritten on update, always.
 - **`template`** — holds your values. The manifest records the hash of what was written; if the file
   no longer matches, you edited it, and the run reports it and leaves it alone.
+- **`seed`** — written once, then **yours**. It is the mode for a file the project is meant to keep
+  writing, like `.claude/rules/checks.md`; an update that refreshed it would throw away what the work
+  put there.
 
 `.claude/settings.json` is **merged, never written over**: arrays are unioned, unknown keys are kept,
 and an existing value always wins. `settings.local.json` is never touched — it is yours.
@@ -104,5 +122,29 @@ npx @mara-tech/arachnid-mesh install --yes \
 A module is a folder at the repository root with a `module.json`. It declares its questions once, its
 components (what they need, what they require, what they write, which permissions they want), and the
 map from placeholder token to question. Adding one needs no change to this CLI.
+
+A question carries more than its prompt:
+
+| Field | What it does |
+|---|---|
+| `message` | the prompt, in the words of someone who has not read the skill |
+| `why` | one line on what the answer is used for, printed above the prompt |
+| `hint` | a second line of context, printed with it |
+| `whenUnsure` | where to go and look, printed with it |
+| `derived` | never asked — resolved from the project, and shown as what was found |
+| `default` | a literal, or the name of a resolver (`git.baseBranch`, `stack.localChecks`, …) |
+
+A template file can carry both wordings of a sentence and let the answer pick:
+
+```md
+<!-- arachnid:if coverageCmd -->
+| coverage | `<your-coverage-command>` |
+<!-- arachnid:else -->
+| coverage | *not recorded yet* |
+<!-- arachnid:end -->
+```
+
+The condition is a question key, never an expression — the manifest and the files it ships stay
+data.
 
 Run `npm test` for the unit suite.

@@ -26,18 +26,50 @@ function expandSource(moduleDir, from) {
   return out.sort((a, b) => a[1].localeCompare(b[1]));
 }
 
+/**
+ * The three ways a file is owned.
+ *
+ *   vendor    ours, identical everywhere — overwritten on update, always
+ *   template  ours, holding your answers — overwritten unless you edited it
+ *   seed      **yours from the moment it exists** — written once and never
+ *             again, because the project is meant to keep writing it
+ *
+ * `seed` is what makes a living file possible. `.claude/rules/checks.md` starts
+ * as whatever the setup could read off the build files and is then filled in by
+ * the work itself; an update that refreshed it would throw away the very thing
+ * it is for. Its content is not compared, only its existence.
+ */
+const RENDERED = new Set(['template', 'seed']);
+
 function fileChange({ projectRoot, manifest, moduleId, componentId, target, sourcePath, suffix, placeholders, answers }) {
   const relPath = toPosix(suffix ? join(target.to, suffix) : target.to);
   const absPath = join(projectRoot, relPath);
 
   const raw = readFileSync(sourcePath, 'utf8');
-  const { content, unresolved } = target.mode === 'template'
+  const rendered = RENDERED.has(target.mode)
     ? render(raw, placeholders, answers)
-    : { content: raw, unresolved: [] };
+    : { content: raw, unresolved: [], deferred: [] };
 
+  const { content, unresolved } = rendered;
   const hash = hashContent(content);
   const existing = existsSync(absPath) ? hashFile(absPath) : null;
   const recorded = componentRecord(manifest, moduleId, componentId)?.files?.[relPath]?.hash ?? null;
+
+  if (target.mode === 'seed' && existing !== null) {
+    // Whatever it says now, it says it because the project said so.
+    return {
+      kind: 'file',
+      action: 'kept',
+      path: relPath,
+      mode: target.mode,
+      content: readFileSync(absPath, 'utf8'),
+      hash: existing,
+      moduleId,
+      componentId,
+      unresolved: [],
+      deferred: [],
+    };
+  }
 
   let action;
   if (existing === null) {
@@ -61,6 +93,7 @@ function fileChange({ projectRoot, manifest, moduleId, componentId, target, sour
     moduleId,
     componentId,
     unresolved,
+    deferred: rendered.deferred ?? [],
   };
 }
 
@@ -104,10 +137,12 @@ export function claudeMdChange({ projectRoot, module, fragmentPaths, placeholder
   if (!fragmentPaths.length) return null;
 
   const unresolved = [];
+  const deferred = [];
   const fragments = fragmentPaths.map((fragmentPath) => {
     const raw = readFileSync(join(module.dir, fragmentPath), 'utf8');
     const rendered = render(raw, placeholders, answers);
     unresolved.push(...rendered.unresolved);
+    deferred.push(...rendered.deferred);
     return rendered.content.trim();
   });
 
@@ -136,6 +171,7 @@ export function claudeMdChange({ projectRoot, module, fragmentPaths, placeholder
     hash: hashContent(next),
     moduleId: module.id,
     unresolved,
+    deferred,
   };
 }
 
@@ -234,10 +270,12 @@ export function buildPlan({ projectRoot, selection, answers, manifest }) {
   }
 
   const unresolved = [];
+  const deferred = new Set();
   for (const change of changes) {
     for (const item of change.unresolved ?? []) {
       unresolved.push({ ...item, path: change.path });
     }
+    for (const key of change.deferred ?? []) deferred.add(key);
   }
 
   const writes = changes.filter((c) => c.action === 'create' || c.action === 'update' || c.action === 'delete');
@@ -245,6 +283,11 @@ export function buildPlan({ projectRoot, selection, answers, manifest }) {
   return {
     changes,
     unresolved,
+    // Questions the files answered with « not recorded yet ». Unlike an
+    // unresolved placeholder this is not a setup that failed: the file reads
+    // straight, and says who fills the gap and when.
+    deferred: [...deferred],
+    kept: changes.filter((c) => c.action === 'kept'),
     skipped: changes.filter((c) => c.action === 'skip-edited'),
     nothingToDo: writes.length === 0,
   };

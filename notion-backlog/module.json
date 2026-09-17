@@ -1,100 +1,142 @@
 {
   "id": "notion-backlog",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "name": "Notion backlog",
   "description": "Use Notion as the backlog, one agent iteration at a time",
-
   "questions": {
     "backlogName": {
       "type": "text",
-      "message": "Backlog name, as it reads in Notion",
+      "message": "What is your backlog called in Notion?",
+      "why": "Named in the rules so the agent speaks of your backlog by name.",
       "example": "Backlog Dharma Project"
     },
     "backlogUrl": {
       "type": "text",
-      "message": "Backlog URL",
+      "message": "Link to that backlog",
+      "why": "Open the page in Notion and copy the address bar.",
       "example": "https://app.notion.com/p/…"
     },
     "dataSourceUri": {
       "type": "text",
       "message": "Data source URI of the backlog",
-      "example": "collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef",
-      "hint": "Leave empty to fill it in later — the skill stops rather than guessing"
+      "why": "What the agent queries to find your tickets — a URL is not enough for that.",
+      "whenUnsure": "Leave it empty: tick « Create the Notion database » and this is one of the things it hands back. On an existing backlog, tools/get_data_source_id.py prints it.",
+      "example": "collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef"
     },
     "ticketPrefix": {
       "type": "text",
-      "message": "Ticket ID prefix",
+      "message": "Two to four letters to number your tickets with",
+      "why": "Ticket DHA-12 becomes branch feature/dha-12-…, so it stays short.",
       "example": "DHA"
     },
     "ticketPageUrl": {
       "type": "text",
-      "message": "URL of the \"Writing a ticket\" page",
-      "example": "https://app.notion.com/p/…",
-      "hint": "Or tick the « Writing a ticket » page component, and the wizard creates it"
+      "message": "Link to your \"Writing a ticket\" page",
+      "why": "How a ticket is written lives in Notion, not in the skill — the agent reads it before writing one.",
+      "whenUnsure": "Tick the « Writing a ticket » page component instead: the wizard writes that page and fills this in.",
+      "example": "https://app.notion.com/p/…"
     },
     "mainBranch": {
       "type": "text",
-      "message": "Branch your pull requests target",
-      "default": "git.baseBranch"
+      "message": "Which branch should pull requests target?",
+      "why": "Every iteration branches off it and opens its pull request against it.",
+      "default": "git.baseBranch",
+      "whenUnsure": "The suggestion is read from this repository — keep it."
     },
     "localChecks": {
       "type": "text",
+      "derived": true,
       "message": "Commands that must pass before a push",
-      "default": "pkg.localChecks",
-      "example": "npm run lint && npm run typecheck && npm test"
+      "why": "Seeds .claude/rules/checks.md. Never asked: read from your build file when there is one, and left for the project to record when there is not.",
+      "default": "stack.localChecks",
+      "example": "mvn -B verify"
     },
     "coverageCmd": {
       "type": "text",
+      "derived": true,
       "message": "Command that reports coverage",
-      "default": "pkg.coverage",
-      "hint": "Leave empty if the project measures none — the skill says so in its report"
+      "why": "Seeds .claude/rules/checks.md, like the checks above, and stays empty until the project has one.",
+      "default": "stack.coverage",
+      "example": "mvn -B verify"
     },
     "repoLang": {
       "type": "select",
-      "message": "Repository language — code, commits, pull requests, docs",
-      "options": ["English", "French", "Spanish", "German"],
+      "message": "Which language do you want written in the repository?",
+      "why": "Commit messages, pull requests, comments and documentation — not the programming language, that one the code decides.",
+      "options": [
+        "English",
+        "French",
+        "Spanish",
+        "German"
+      ],
       "default": "English"
     },
     "chatLang": {
       "type": "select",
-      "message": "Conversation language — chat, Notion tickets and reports",
-      "options": ["French", "English", "Spanish", "German"],
+      "message": "Which language should the agent talk to you in?",
+      "why": "Chat, Notion tickets and the reports it writes on them.",
+      "options": [
+        "French",
+        "English",
+        "Spanish",
+        "German"
+      ],
       "default": "French"
     },
     "notionToken": {
       "type": "password",
       "secret": true,
       "message": "Notion integration token",
-      "hint": "Used for this call only, never written to a file"
+      "why": "Used for this one call, then forgotten — it is never written to a file.",
+      "whenUnsure": "notion.so/my-integrations → New integration, then share your parent page with it."
     },
     "notionParentPage": {
       "type": "text",
-      "message": "URL of the Notion page the backlog goes under",
+      "message": "Link to the Notion page the backlog should go under",
+      "why": "A database is created inside a page, and that page must be shared with your integration.",
       "example": "https://app.notion.com/p/Backlogs-…"
     },
     "projectName": {
       "type": "text",
-      "message": "Project name"
+      "message": "Project name",
+      "why": "Heads the Claude Project instructions this writes.",
+      "example": "Dharma"
     },
     "projectPitch": {
       "type": "text",
-      "message": "One line describing the project",
+      "message": "In one line, what is this project for?",
+      "why": "The opening line of the Claude Project instructions.",
+      "whenUnsure": "A rough sentence is enough — the framing tickets are what turn it into needs, and they will say it better than today.",
       "example": "Dharma is a field station network for behavioural research"
     }
   },
-
   "components": [
     {
       "id": "go",
       "label": "/go",
       "kind": "skill",
       "description": "run one backlog iteration",
-      "requires": ["notion-rules", "language"],
-      "needs": ["dataSourceUri", "mainBranch", "localChecks", "coverageCmd"],
+      "requires": [
+        "notion-rules",
+        "language",
+        "checks"
+      ],
+      "needs": [
+        "dataSourceUri",
+        "mainBranch"
+      ],
       "claudeMd": "claude-md/go.md",
       "targets": [
-        { "from": "skills/go/SKILL.md", "to": ".claude/skills/go/SKILL.md", "mode": "template" },
-        { "from": "skills/go/references", "to": ".claude/skills/go/references", "mode": "vendor" }
+        {
+          "from": "skills/go/SKILL.md",
+          "to": ".claude/skills/go/SKILL.md",
+          "mode": "template"
+        },
+        {
+          "from": "skills/go/references",
+          "to": ".claude/skills/go/references",
+          "mode": "vendor"
+        }
       ],
       "settings": {
         "permissions": {
@@ -122,60 +164,109 @@
         }
       }
     },
-
     {
       "id": "go-auto",
       "label": "/go-auto",
       "kind": "skill",
       "description": "unattended, for /loop",
-      "requires": ["go"],
-      "needs": ["ticketPrefix"],
+      "requires": [
+        "go"
+      ],
+      "needs": [
+        "ticketPrefix"
+      ],
       "claudeMd": "claude-md/go-auto.md",
       "targets": [
-        { "from": "skills/go-auto", "to": ".claude/skills/go-auto", "mode": "vendor" }
+        {
+          "from": "skills/go-auto",
+          "to": ".claude/skills/go-auto",
+          "mode": "vendor"
+        }
       ]
     },
-
     {
       "id": "notion-rules",
       "label": "Notion ticket rules",
       "kind": "rules",
       "description": "what the backlog is and how a ticket moves",
-      "needs": ["backlogName", "dataSourceUri", "backlogUrl", "ticketPageUrl", "ticketPrefix"],
+      "needs": [
+        "backlogName",
+        "dataSourceUri",
+        "backlogUrl",
+        "ticketPageUrl",
+        "ticketPrefix"
+      ],
       "targets": [
-        { "from": "rules/notion-tickets.md", "to": ".claude/rules/notion-tickets.md", "mode": "template" }
+        {
+          "from": "rules/notion-tickets.md",
+          "to": ".claude/rules/notion-tickets.md",
+          "mode": "template"
+        }
       ]
     },
-
     {
       "id": "language",
       "label": "Language rule",
       "kind": "rules",
       "description": "repository language vs conversation language",
-      "needs": ["repoLang", "chatLang"],
+      "needs": [
+        "repoLang",
+        "chatLang"
+      ],
       "targets": [
-        { "from": "rules/language.md", "to": ".claude/rules/language.md", "mode": "template" }
+        {
+          "from": "rules/language.md",
+          "to": ".claude/rules/language.md",
+          "mode": "template"
+        }
       ]
     },
-
+    {
+      "id": "checks",
+      "label": "Local checks",
+      "kind": "rules",
+      "description": "what to run before a push — a file the project fills in as it learns",
+      "needs": [
+        "localChecks",
+        "coverageCmd"
+      ],
+      "claudeMd": "claude-md/checks.md",
+      "targets": [
+        {
+          "from": "rules/checks.md",
+          "to": ".claude/rules/checks.md",
+          "mode": "seed"
+        }
+      ]
+    },
     {
       "id": "framing",
       "label": "Framing rule",
       "kind": "rules",
       "description": "NEED, PREF, ARCH and specifications — what is authoritative",
-      "requires": ["language"],
+      "requires": [
+        "language"
+      ],
       "claudeMd": "claude-md/framing.md",
       "targets": [
-        { "from": "rules/framing.md", "to": ".claude/rules/framing.md", "mode": "template" }
+        {
+          "from": "rules/framing.md",
+          "to": ".claude/rules/framing.md",
+          "mode": "template"
+        }
       ]
     },
-
     {
       "id": "project-instructions",
       "label": "Claude Project instructions",
       "kind": "doc",
       "description": "to work the backlog without the repository",
-      "needs": ["projectName", "projectPitch", "dataSourceUri", "ticketPageUrl"],
+      "needs": [
+        "projectName",
+        "projectPitch",
+        "dataSourceUri",
+        "ticketPageUrl"
+      ],
       "targets": [
         {
           "from": "project/claude_project_instructions.md",
@@ -184,7 +275,6 @@
         }
       ]
     },
-
     {
       "id": "ticket-page",
       "label": "« Writing a ticket » page",
@@ -202,12 +292,19 @@
       "kind": "action",
       "description": "schema, relations and the first framing tickets",
       "warning": "needs a Notion token",
-      "needs": ["notionToken", "notionParentPage", "backlogName", "ticketPrefix"],
-      "provides": ["dataSourceUri", "backlogUrl"],
+      "needs": [
+        "notionToken",
+        "notionParentPage",
+        "backlogName",
+        "ticketPrefix"
+      ],
+      "provides": [
+        "dataSourceUri",
+        "backlogUrl"
+      ],
       "action": "notion.createBacklog"
     }
   ],
-
   "placeholders": {
     "<your-notion-database>": "dataSourceUri",
     "<your-notion-database-url>": "backlogUrl",

@@ -4,7 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { render, findUnresolved, stripSetupOnly } from '../src/render.js';
+import { render, findUnresolved, resolveConditionals, stripSetupOnly } from '../src/render.js';
+import { detectStack, hasCode, suggestCoverageCommand, suggestLocalChecks } from '../src/project.js';
+import { buildPlan } from '../src/plan.js';
 import { planSettingsMerge } from '../src/settings.js';
 import { resolveRequires } from '../src/select.js';
 import { planQuestions } from '../src/questions.js';
@@ -89,6 +91,117 @@ test('findUnresolved sees what the documented grep misses', () => {
   // .claude/CLAUDE.md rather than under .claude/skills/.
   const found = findUnresolved('database **<Backlog Name>**', { '<Backlog Name>': 'backlogName' });
   assert.deepEqual(found, [{ token: '<Backlog Name>', key: 'backlogName' }]);
+});
+
+test('a conditional keeps the wording that matches the answer', () => {
+  const source = [
+    '| What | Command |',
+    '<!-- arachnid:if localChecks -->',
+    '| before a push | `<your-local-checks>` |',
+    '<!-- arachnid:else -->',
+    '| before a push | *not recorded yet* |',
+    '<!-- arachnid:end -->',
+  ].join('\n');
+
+  const set = render(source, { '<your-local-checks>': 'localChecks' }, { localChecks: 'sbt test' });
+  assert.ok(set.content.includes('`sbt test`'));
+  assert.ok(!set.content.includes('not recorded yet'));
+  assert.deepEqual(set.deferred, []);
+
+  const unset = render(source, { '<your-local-checks>': 'localChecks' }, {});
+  assert.ok(unset.content.includes('*not recorded yet*'));
+  // The point of the whole mechanism: nothing is left for the skill to trip on.
+  assert.deepEqual(unset.unresolved, [], 'the dropped branch took its placeholder with it');
+  assert.deepEqual(unset.deferred, ['localChecks']);
+});
+
+test('a conditional without an else branch simply disappears', () => {
+  const { content, deferred } = resolveConditionals(
+    'before\n<!-- arachnid:if coverageCmd -->\nreport coverage\n<!-- arachnid:end -->\nafter',
+    {},
+  );
+  assert.equal(content, 'before\nafter');
+  assert.deepEqual(deferred, ['coverageCmd']);
+});
+
+test('a test command is read off the project, whatever it is built with', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  writeFileSync(join(dir, 'pom.xml'), '<project><artifactId>jacoco-maven-plugin</artifactId></project>');
+
+  assert.equal(detectStack(dir).id, 'maven');
+  assert.equal(suggestLocalChecks(dir), 'mvn -B verify');
+  assert.equal(suggestCoverageCommand(dir), 'mvn -B verify', 'jacoco is declared, so coverage exists');
+
+  const bare = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  writeFileSync(join(bare, 'build.sbt'), 'name := "dharma"');
+  assert.equal(suggestLocalChecks(bare), 'sbt test');
+  assert.equal(suggestCoverageCommand(bare), '', 'no coverage plugin declared, so nothing is invented');
+});
+
+test('an empty directory is a project about to start, not a project without tests', () => {
+  const empty = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  assert.equal(hasCode(empty), false);
+  assert.equal(suggestLocalChecks(empty), '');
+
+  const started = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  mkdirSync(join(started, 'src'));
+  writeFileSync(join(started, 'src', 'Main.scala'), 'object Main');
+  assert.equal(hasCode(started), true);
+});
+
+test('a question the project answers is never put to the user', () => {
+  const module = {
+    id: 'notion-backlog',
+    questions: {
+      mainBranch: { type: 'text' },
+      localChecks: { type: 'text', derived: true, default: 'stack.localChecks' },
+    },
+    components: [{ id: 'go', needs: ['mainBranch', 'localChecks'] }],
+  };
+  const selection = [{ module, component: module.components[0] }];
+
+  const { questions, derived, all } = planQuestions(selection, { projectRoot: mkdtempSync(join(tmpdir(), 'arachnid-')) });
+
+  assert.deepEqual(questions.map((q) => q.key), ['mainBranch']);
+  assert.deepEqual(derived.map((q) => q.key), ['localChecks']);
+  assert.equal(all.length, 2, 'it is still answered, just not asked');
+});
+
+test('a seed file is written once and never touched again', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  const module = discoverModules().find((candidate) => candidate.id === 'notion-backlog');
+  const component = module.components.find((candidate) => candidate.id === 'checks');
+  const selection = [{ module, component }];
+  const answers = { localChecks: 'pytest' };
+
+  const first = buildPlan({ projectRoot: dir, selection, answers, manifest: {} });
+  const seeded = first.changes.find((change) => change.path === '.claude/rules/checks.md');
+  assert.equal(seeded.action, 'create');
+  assert.ok(seeded.content.includes('`pytest`'));
+
+  mkdirSync(join(dir, '.claude', 'rules'), { recursive: true });
+  writeFileSync(join(dir, '.claude/rules/checks.md'), '# Local checks\n\nwhat the project wrote itself\n');
+
+  const second = buildPlan({ projectRoot: dir, selection, answers, manifest: {} });
+  const kept = second.changes.find((change) => change.path === '.claude/rules/checks.md');
+  assert.equal(kept.action, 'kept');
+  assert.equal(kept.content, '# Local checks\n\nwhat the project wrote itself\n');
+  assert.equal(second.nothingToDo, false, 'the CLAUDE.md block is still to write');
+  assert.equal(second.changes.filter((c) => c.path === '.claude/rules/checks.md' && c.action === 'update').length, 0);
+});
+
+test('the go skill no longer hard-codes what a project runs', () => {
+  const module = discoverModules().find((candidate) => candidate.id === 'notion-backlog');
+  const skill = readFileSync(join(module.dir, 'skills/go/SKILL.md'), 'utf8');
+  const { content, unresolved } = render(skill, module.placeholders, {
+    dataSourceUri: 'collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef',
+    mainBranch: 'main',
+  });
+
+  // Someone starting a project answers neither of these, and the skill still
+  // installs whole — the placeholder left behind is what used to break /go.
+  assert.deepEqual(unresolved, []);
+  assert.ok(content.includes('.claude/rules/checks.md'), 'it points at the file the project keeps');
 });
 
 test('settings merge keeps what the project already had', () => {

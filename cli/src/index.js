@@ -34,6 +34,7 @@ import { planQuestions, questionCatalogue } from './questions.js';
 import { orderSelection, resolveRequires } from './select.js';
 import {
   componentOptions,
+  dim,
   renderDiagnosis,
   renderPlan,
   renderQuestionPlan,
@@ -96,9 +97,20 @@ async function chooseComponents({ modules, manifest, only, initial }) {
   );
 }
 
-async function askQuestion(question) {
-  const common = { message: question.message ?? question.key };
-  if (question.hint) common.placeholder = question.hint;
+/**
+ * One question, with what it is for printed above it.
+ *
+ * A setup screen that asks « Commands that must pass before a push » and
+ * nothing else is only answerable by whoever already knows. So every question
+ * carries a `why` — one line, in the words of someone who has not read the
+ * skill — and a `whenUnsure` when there is somewhere to go and look.
+ */
+async function askQuestion(question, position) {
+  const context = [question.why, question.hint, question.whenUnsure && `Not sure? ${question.whenUnsure}`]
+    .filter(Boolean);
+  if (context.length) log.message(dim(context.join('\n')));
+
+  const common = { message: `${position}  ${question.message ?? question.key}` };
 
   if (question.type === 'select') {
     return stopIfCancelled(
@@ -117,7 +129,7 @@ async function askQuestion(question) {
   const answer = stopIfCancelled(
     await text({
       ...common,
-      placeholder: question.example ?? question.hint ?? '',
+      placeholder: question.example ?? '',
       initialValue: question.default ?? '',
       defaultValue: '',
     }),
@@ -231,7 +243,7 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
   const selection = orderSelection(modules, expanded);
   const catalogue = questionCatalogue(modules);
 
-  const { questions, provided } = planQuestions(selection, {
+  const { questions, derived, all, provided } = planQuestions(selection, {
     projectRoot: project.root,
     previousAnswers: manifest.answers,
   });
@@ -243,15 +255,15 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
     ? questions.filter((q) => manifest.answers?.[q.key] === undefined && q.default === undefined)
     : questions;
 
-  if (toAsk.length) renderQuestionPlan(toAsk, provided);
+  renderQuestionPlan(toAsk, { provided, derived });
 
   const answers = { ...manifest.answers, ...options.answers };
-  for (const question of toAsk) {
+  for (const [index, question] of toAsk.entries()) {
     if (options.answers[question.key] !== undefined) continue;
-    const value = await askQuestion(question);
+    const value = await askQuestion(question, dim(`${index + 1}/${toAsk.length}`));
     if (value !== '' && value !== undefined) answers[question.key] = value;
   }
-  for (const question of questions) {
+  for (const question of all) {
     if (answers[question.key] === undefined && question.default !== undefined) {
       answers[question.key] = question.default;
     }
@@ -408,13 +420,13 @@ async function runHeadless({ modules, project, manifest, options }) {
   const { keys: expanded } = resolveRequires(modules, keys);
   const selection = orderSelection(modules, expanded);
   const catalogue = questionCatalogue(modules);
-  const { questions } = planQuestions(selection, {
+  const { all } = planQuestions(selection, {
     projectRoot: project.root,
     previousAnswers: manifest.answers,
   });
 
   const answers = { ...manifest.answers, ...options.answers };
-  for (const question of questions) {
+  for (const question of all) {
     if (answers[question.key] === undefined && question.default !== undefined) {
       answers[question.key] = question.default;
     }
@@ -439,6 +451,8 @@ async function runHeadless({ modules, project, manifest, options }) {
   for (const change of written) process.stdout.write(`written: ${change.path}\n`);
   for (const change of removed) process.stdout.write(`removed: ${change.path}\n`);
   for (const change of skipped) process.stdout.write(`skipped (edited locally): ${change.path}\n`);
+  for (const change of plan.kept) process.stdout.write(`kept (yours): ${change.path}\n`);
+  for (const key of plan.deferred) process.stdout.write(`not recorded yet: ${key}\n`);
   for (const item of plan.unresolved) {
     process.stdout.write(`unconfigured: ${item.key} in ${item.path}\n`);
   }

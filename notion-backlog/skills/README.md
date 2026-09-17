@@ -44,14 +44,17 @@ folder changes.
 4. **Fill in the placeholders of `go/SKILL.md`.** The skill is a template — it describes the
    procedure, not your project — and it is written to stop rather than guess if one is left in.
    They are the only thing to edit, they are listed in one table at the top of the file, and there
-   are four of them:
+   are two of them:
 
    | Placeholder | What it is | Example |
    |---|---|---|
    | `<your-notion-database>` | the data source URI of your backlog. Use [this tool](../tools/get_data_source_id.py) to find it | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
    | `<your-main-branch>` | the branch your pull requests target | `main` |
-   | `<your-local-checks>` | the commands that must pass before a push | `npm run lint && npm run typecheck && npm test` |
-   | `<your-coverage-command>` | the command that reports coverage. Leave it as is if your project measures none — the skill says so in its report instead of hiding it | `npm run coverage` |
+
+   Both are facts you already have. What your project *runs* — tests, linters, coverage — is not
+   asked here: it lives in `rules/checks.md`, which you fill in as far as you can today and the
+   iterations complete as they learn. A project that has not chosen its language yet fills in
+   nothing, and nothing breaks.
 
    The section holding that table is fenced with `<!-- arachnid:setup-only -->`. Once you have filled
    the values in, delete it: a table listing placeholders next to the values that replaced them

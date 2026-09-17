@@ -22,7 +22,7 @@ to fill in.
 <!-- arachnid:setup-only -->
 ## What this file needs before it runs
 
-This skill is a template. The four values below are **the only thing to fill in**, once, when the
+This skill is a template. The two values below are **the only thing to fill in**, once, when the
 skill is copied into a project — [skills/README.md](../README.md#how-to-set-this-up) walks through
 it. Everything else, `references/` included, is copied as it is.
 
@@ -30,8 +30,12 @@ it. Everything else, `references/` included, is copied as it is.
 |---|---|---|
 | `<your-notion-database>` | the data source URI of the backlog | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
 | `<your-main-branch>` | the branch pull requests target — the **base branch** the reference speaks of | `main` |
-| `<your-local-checks>` | the commands that must pass before a push | `npm run lint && npm run typecheck && npm test` |
-| `<your-coverage-command>` | the command that reports coverage, if the project has one | `npm run coverage` |
+
+Both are facts about the project that exist before the first iteration. What the project runs —
+tests, linters, coverage — is deliberately **not** here: it belongs to
+[.claude/rules/checks.md](../../rules/checks.md), which starts from whatever the setup could read and
+is filled in by the iterations themselves. A skill that hard-codes `npm test` into a project that
+turned out to be a Maven one is a skill that has to be reinstalled to be corrected.
 
 The installer strips this section once the values are in — a table that lists placeholders next to
 the values that replaced them describes a state that no longer exists.
@@ -233,8 +237,12 @@ ticket moves on. A partially done ticket stays `in progress` and says what is mi
 it immediately. A test that still passes against broken code is worse than no test, because it buys
 false confidence. Note which passes you did — they go in the report.
 
-Run `<your-local-checks>` before pushing. Finding a failure here costs one minute; finding it in CI
-costs a round trip.
+**Run what [.claude/rules/checks.md](../../rules/checks.md) lists, before pushing.** Finding a failure
+there costs one minute; finding it in CI costs a round trip. That file is the project's memory of how
+it is verified: when a line says *not recorded yet*, find what this project actually runs — build
+file, CI workflow, README — run it, and **write it into the file in this same pass**. Same when a
+command it names no longer works. The ticket that teaches the project something is the ticket that
+records it.
 
 **A `cadrage` ticket produces documents and decisions, not code** — needs, preferences, architecture,
 specifications, as `.claude/rules/framing.md` describes them when the project has it. Its material is
@@ -329,8 +337,10 @@ project, and they are the ones that get skipped:
 
 - **the test results**: how many tests, in which files, and the proof that they bite (which
   behaviour you broke, which tests fell);
-- **a coverage snapshot** from `<your-coverage-command>`: before → after, per touched file, plus the
-  global figure. If the project measures no coverage, say that once — an absent section reads like an
+- **a coverage snapshot** from the coverage command in
+  [.claude/rules/checks.md](../../rules/checks.md): before → after, per touched file, plus the global
+  figure. If that line says *not recorded yet*, look once for a coverage command; finding one means
+  recording it there, and finding none means saying so in the report — an absent section reads like an
   oversight, a stated absence does not.
 
 Under `--auto-merge`, one more section — **the review and what became of it**. Without it, the merge

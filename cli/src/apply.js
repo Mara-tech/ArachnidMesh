@@ -48,6 +48,9 @@ export function applyPlan({ projectRoot, plan, selection, answers, manifest, que
   manifest.cli = cliVersion;
   manifest.answers = { ...manifest.answers, ...persistableAnswers(answers, questionCatalogue) };
   manifest.unconfigured = [...new Set(plan.unresolved.map((item) => item.key))];
+  // Not the same thing at all: unconfigured is a setup that stopped half-way,
+  // deferred is a file that says « not recorded yet » and names who fills it in.
+  manifest.deferred = [...(plan.deferred ?? [])];
 
   writeManifest(projectRoot, manifest);
 

@@ -10,8 +10,8 @@ import { baseBranch, currentBranch, suggestCoverageCommand, suggestLocalChecks }
 const RESOLVERS = {
   'git.baseBranch': (ctx) => baseBranch(ctx.projectRoot),
   'git.currentBranch': (ctx) => currentBranch(ctx.projectRoot),
-  'pkg.localChecks': (ctx) => suggestLocalChecks(ctx.projectRoot),
-  'pkg.coverage': (ctx) => suggestCoverageCommand(ctx.projectRoot),
+  'stack.localChecks': (ctx) => suggestLocalChecks(ctx.projectRoot),
+  'stack.coverage': (ctx) => suggestCoverageCommand(ctx.projectRoot),
 };
 
 export function resolveDefault(spec, ctx) {
@@ -30,6 +30,13 @@ export function resolveDefault(spec, ctx) {
  * The questions to ask for a selection — the union of what the selected
  * components need, each asked once.
  *
+ * A question marked `derived` is never put to the user. « Which command runs
+ * the tests? » is the project's answer, not the user's: it is read off the
+ * build file when there is one, and left empty when there is not — the file it
+ * seeds then says « not recorded yet » and names who fills it in. Asking it at
+ * install time asks someone starting a project to describe a build they have
+ * not written yet.
+ *
  * This is what selecting first buys: `dataSourceUri` is needed by /go and by
  * the ticket rules, and is asked once rather than twice. Anything a selected
  * component *provides* is dropped — ticking "create the Notion database" means
@@ -44,6 +51,7 @@ export function planQuestions(selection, ctx) {
 
   const seen = new Set();
   const questions = [];
+  const derived = [];
 
   for (const { module, component } of selection) {
     for (const key of component.needs ?? []) {
@@ -53,17 +61,19 @@ export function planQuestions(selection, ctx) {
       const definition = module.questions?.[key];
       if (!definition) continue;
 
-      questions.push({
+      const question = {
         key,
         module: module.id,
         ...definition,
         default: ctx.previousAnswers?.[key] ?? resolveDefault(definition.default, ctx),
         askedFor: componentsNeeding(selection, key),
-      });
+      };
+
+      (question.derived ? derived : questions).push(question);
     }
   }
 
-  return { questions, provided: [...provided] };
+  return { questions, derived, all: [...questions, ...derived], provided: [...provided] };
 }
 
 function componentsNeeding(selection, key) {

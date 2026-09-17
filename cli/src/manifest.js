@@ -23,7 +23,7 @@ export function hashFile(path) {
 }
 
 export function emptyManifest() {
-  return { version: MANIFEST_VERSION, cli: null, answers: {}, unconfigured: [], modules: {} };
+  return { version: MANIFEST_VERSION, cli: null, answers: {}, unconfigured: [], deferred: [], modules: {} };
 }
 
 export function readManifest(projectRoot) {
