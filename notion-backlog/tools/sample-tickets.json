@@ -1,0 +1,101 @@
+{
+  "about": "The first tickets of a new backlog, shared by create_notion_backlog.py and the CLI. They are real work, not a connection test: framing the project, one level at a time, as .claude/rules/framing.md describes. Every one is todo, and none sits above a ticket it depends on. Body lines: '## ' heading, '- [ ] ' checkbox, '- ' bullet, anything else a paragraph.",
+  "tickets": [
+    {
+      "key": "needs",
+      "Titre": "Les besoins du projet ne sont ni écrits ni classés par valeur",
+      "Statut": "todo",
+      "Priorité": 5000,
+      "Genre": "cadrage",
+      "Tags": ["documentation"],
+      "dependsOn": [],
+      "Description": "⚠️ Se mène avec le propriétaire du projet : les besoins et leur classement sont à lui. À lancer avec /go, pas /go-auto.\n\nConstat : aucun document du dépôt ne dit ce qui manque à qui, ni dans quel ordre ça compte — vérifié à la création de la backlog.\nConséquence : chaque ticket suivant tranche seul ce qui a de la valeur, et la première solution évoquée passe pour un besoin.\n\n## ✅ Definition of Done\n- [ ] docs/needs.md liste les besoins NEED-n, du plus précieux au moins précieux\n- [ ] Chaque besoin dit pour qui, ce qui manque et ce que ça coûte aujourd'hui\n- [ ] Aucun besoin ne nomme un écran, une technologie, un produit ou une fonctionnalité : deux solutions très différentes pourraient répondre à chacun\n- [ ] Les solutions exprimées en chemin sont notées à part, pour le ticket des préférences\n- [ ] Les questions ouvertes sont écrites comme ouvertes\n- [ ] Le propriétaire a validé la liste et le classement\n- [ ] Hors périmètre : aucune préférence, aucun choix technique, aucun code",
+      "body": [
+        "## Pourquoi commencer par là",
+        "Tout le reste en découle : les préférences disent comment répondre à ces besoins, l'architecture comment les construire, les spécifications ce que le produit fait pour eux. Un besoin mal posé ici se paie à chaque étage.",
+        "## Des besoins, pas des préférences",
+        "C'est le piège de ce ticket, et il faut y revenir à chaque réponse. Un besoin dit ce qui manque et pourquoi ça compte ; il laisse la solution ouverte. Dès qu'une réponse décrit un comment — un écran, une application mobile, une notification, un tableau de bord, un outil ou une technologie nommés — ce n'est plus un besoin : c'est une préférence, ou un choix d'architecture, qui commence à dessiner la solution.",
+        "- Le test : deux solutions très différentes pourraient-elles y répondre ? Si une seule convient, ce n'est pas encore un besoin.",
+        "- Remonter d'un cran : demander « pourquoi ? » jusqu'à tomber sur un problème ou un coût, pas sur un moyen.",
+        "- ❌ « Une application mobile avec des notifications » → ✅ « Les membres oublient les échéances convenues, et l'apprennent trop tard pour réagir »",
+        "- ❌ « Un tableau de bord en temps réel » → ✅ « Le responsable ne sait pas où en est l'équipe sans interroger chacun »",
+        "- ❌ « Sauvegarder les données dans le cloud » → ✅ « Perdre son téléphone ne doit pas faire perdre le travail de la semaine »",
+        "- Rien de ce qui est dit n'est jeté : la solution décrite est notée telle quelle, pour le ticket des préférences.",
+        "## À faire",
+        "- Interroger le propriétaire, un sujet à la fois, avec des questions ouvertes — ne pas déduire les besoins du nom du projet ou du code existant.",
+        "- Reformuler chaque réponse en besoin, et faire valider la reformulation : c'est là que la solution se glisse.",
+        "- Rédiger docs/needs.md : un tableau récapitulatif (rang, NEED-n, besoin, dépend de), puis une section par besoin — pourquoi, périmètre, questions ouvertes.",
+        "- NEED-n est stable : jamais renuméroté, jamais réutilisé. Si l'ordre change, les sections bougent, pas les numéros.",
+        "- Proposer un classement par valeur avec sa raison, et le faire trancher.",
+        "- Signaler les besoins bas en valeur qui pèsent tôt sur la conception : le rang n'est pas l'ordre de livraison.",
+        "## À la mesure du projet",
+        "Un projet d'un week-end tient en cinq lignes, un produit en plusieurs pages. La profondeur s'adapte ; la règle, non : un besoin ne décrit pas de solution.",
+        "## Hors périmètre",
+        "Les préférences et les choix techniques entendus pendant l'entretien : ils sont notés, pas rédigés. Ils ont leurs propres tickets."
+      ]
+    },
+    {
+      "key": "preferences",
+      "Titre": "Ce que le propriétaire attend du produit n'est pas écrit",
+      "Statut": "todo",
+      "Priorité": 4500,
+      "Genre": "cadrage",
+      "Tags": ["documentation"],
+      "dependsOn": ["needs"],
+      "Description": "⚠️ Se mène avec le propriétaire du projet. S'il n'a aucune préférence à poser (outil interne, bibliothèque), c'est à lui d'annuler ce ticket.\n\nConstat : rien ne dit comment le produit doit se présenter et se comporter aux yeux de son propriétaire — vérifié à la création de la backlog.\nConséquence : chaque choix d'apparence ou de comportement est tranché par celui qui l'implémente, et les solutions notées en cadrant les besoins se perdent.\n\n## ✅ Definition of Done\n- [ ] docs/preferences.md liste les préférences PREF-n, chacune avec son niveau : ferme, penchant ou souhaitable\n- [ ] Chaque solution notée pendant le ticket des besoins est reprise en préférence, ou écartée explicitement\n- [ ] Chaque préférence cite les NEED-n qu'elle sert, ou se dit goût assumé\n- [ ] Les points non tranchés sont écrits comme ouverts\n- [ ] Le propriétaire a validé la liste et les niveaux\n- [ ] Hors périmètre : aucun choix de construction (architecture), aucun code",
+      "body": [
+        "## Préférence, besoin, architecture",
+        "- Un besoin dit ce qui manque et pourquoi. Il est déjà écrit dans docs/needs.md.",
+        "- Une préférence dit ce que veut le propriétaire : elle peut nommer un produit, une plateforme, une couleur, un geste. « Android d'abord », « la navigation se fait au pouce » sont des préférences.",
+        "- Un choix d'architecture dit comment on le construit et pourquoi : il a son propre ticket.",
+        "## Les niveaux",
+        "- Ferme : s'en écarter est une question à poser, pas une décision à prendre.",
+        "- Penchant : le choix par défaut, ouvert à une bonne raison.",
+        "- Souhaitable : voulu, mais jamais au prix d'une préférence ferme.",
+        "## À faire",
+        "- Repartir des solutions notées pendant le cadrage des besoins.",
+        "- Interroger le propriétaire sur l'apparence, la navigation, le ton, les plateformes, la sécurité ressentie — seulement ce qui compte pour ce projet.",
+        "- Dégager un principe directeur s'il en existe un : celui qui tranche quand une préférence est floue.",
+        "- PREF-n est stable : jamais renuméroté, jamais réutilisé."
+      ]
+    },
+    {
+      "key": "architecture",
+      "Titre": "Les choix techniques structurants ne sont ni posés ni justifiés",
+      "Statut": "todo",
+      "Priorité": 4000,
+      "Genre": "cadrage",
+      "Tags": ["documentation"],
+      "dependsOn": ["preferences"],
+      "Description": "⚠️ Ticket de décision : l'agent propose et recommande, le propriétaire tranche.\n\nConstat : aucun document ne dit sur quelle plateforme, avec quelle pile ni où vivent les données, ni pourquoi — vérifié à la création de la backlog.\nConséquence : le premier ticket de code fera ces choix en passant, sans les confronter aux besoins ni aux préférences, et les défaire coûtera une réécriture.\n\n## ✅ Definition of Done\n- [ ] docs/architecture/ porte les décisions ARCH-n, chacune avec son statut : proposée, penchant, décidée, remplacée\n- [ ] Chaque décision cite les NEED-n et PREF-n auxquels elle répond\n- [ ] Les options écartées sont écrites avec leur coût réel et la raison de les écarter\n- [ ] Ce qui ne peut pas se trancher sans mesure devient son propre ticket, plutôt qu'une intuition\n- [ ] Seul le propriétaire a fait passer une décision à « décidée »\n- [ ] Hors périmètre : aucun code de production — un prototype jetable pour mesurer est permis, il n'est pas versionné",
+      "body": [
+        "## Ce qui mérite une décision ici",
+        "Seulement ce qui est cher à défaire : plateforme cible, langage et partage de code, stockage et synchronisation des données, hébergement, dépendances à des services tiers. Le reste se décide dans les tickets, au fil de l'eau.",
+        "## À faire",
+        "- Relire docs/needs.md et docs/preferences.md : une décision qui ne répond à aucun des deux est suspecte.",
+        "- Pour chaque décision : les options, leur coût chiffré sur ce projet, une recommandation qui dit honnêtement ce dont on n'est pas sûr.",
+        "- ARCH-n est stable : une décision remplacée garde son numéro et pointe vers celle qui la remplace.",
+        "- Un projet sans enjeu technique peut tenir en une seule décision. C'est au propriétaire de dire si ce ticket se réduit ou s'annule."
+      ]
+    },
+    {
+      "key": "specifications",
+      "Titre": "Aucune spécification ne décrit ce qu'il faut construire en premier",
+      "Statut": "todo",
+      "Priorité": 3500,
+      "Genre": "cadrage",
+      "Tags": ["documentation"],
+      "dependsOn": ["architecture"],
+      "Description": "Constat : les besoins les plus précieux n'ont aucune spécification, et la backlog ne contient aucun ticket pour les livrer — vérifié à la création de la backlog.\nConséquence : rien n'est prêt à être implémenté, et le code écrit sans spécification décidera seul du comportement.\n\n## ✅ Definition of Done\n- [ ] docs/specs/<domaine>/ décrit ce que le produit fait pour le ou les besoins en tête du classement : comportement, règles, données — jamais l'implémentation\n- [ ] Chaque règle porte un identifiant stable <DOMAINE>-n\n- [ ] Les préférences utilisées sont reformulées en comportement et citées\n- [ ] Les questions non tranchées sont écrites comme ouvertes, et posées au propriétaire\n- [ ] Les tickets d'implémentation sont créés dans la backlog, chacun citant le NEED-n et les règles qu'il livre, avec sa priorité et ses dépendances\n- [ ] Hors périmètre : aucun code",
+      "body": [
+        "## C'est ici que la backlog se déploie",
+        "Ce ticket ne produit pas de fonctionnalité : il produit les tickets qui en produiront. Chacun est rédigé selon « Rédiger un ticket », livrable d'un bloc, et cite ce qu'il sert.",
+        "## À faire",
+        "- Partir du besoin en tête du classement, et s'arrêter quand il est spécifié — le suivant fera l'objet d'un autre ticket du même genre.",
+        "- Une règle dit ce que l'utilisateur voit et fait, pas les classes ni les bibliothèques qui le réalisent.",
+        "- Les identifiants de règle ne sont jamais renumérotés ni réutilisés : les tests les citeront.",
+        "- Placer les nouveaux tickets entre eux par valeur et par dépendance — jamais au-dessus d'un ticket dont ils dépendent."
+      ]
+    }
+  ]
+}
