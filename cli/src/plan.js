@@ -68,6 +68,27 @@ const MARKER_START = (moduleId) => `<!-- arachnid:${moduleId} -->`;
 const MARKER_END = (moduleId) => `<!-- /arachnid:${moduleId} -->`;
 
 /**
+ * Where the instruction file lives: inside `.claude/`, with the rest of what we
+ * write. `CLAUDE.md` at the project root is the previous location — still read
+ * by the agent, so a block left there would be a second, stale copy of the same
+ * instructions — it is taken out by the run that moves it.
+ */
+export const CLAUDE_MD_PATH = '.claude/CLAUDE.md';
+export const LEGACY_CLAUDE_MD_PATH = 'CLAUDE.md';
+
+/** The file without our block, or null when it holds none. */
+function withoutBlock(content, moduleId) {
+  const start = MARKER_START(moduleId);
+  const end = MARKER_END(moduleId);
+  if (!content.includes(start) || !content.includes(end)) return null;
+
+  const before = content.slice(0, content.indexOf(start));
+  const after = content.slice(content.indexOf(end) + end.length);
+  const rest = `${before.trimEnd()}\n\n${after.trimStart()}`.trim();
+  return rest ? `${rest}\n` : '';
+}
+
+/**
  * The module's CLAUDE.md block, inserted between markers.
  *
  * The fragments come from the *installed* components, concatenated in
@@ -94,7 +115,7 @@ export function claudeMdChange({ projectRoot, module, fragmentPaths, placeholder
   const end = MARKER_END(module.id);
   const block = `${start}\n${fragments.join('\n\n')}\n${end}`;
 
-  const relPath = 'CLAUDE.md';
+  const relPath = CLAUDE_MD_PATH;
   const absPath = join(projectRoot, relPath);
   const current = existsSync(absPath) ? readFileSync(absPath, 'utf8') : '';
 
@@ -115,6 +136,34 @@ export function claudeMdChange({ projectRoot, module, fragmentPaths, placeholder
     hash: hashContent(next),
     moduleId: module.id,
     unresolved,
+  };
+}
+
+/**
+ * The block left in a root `CLAUDE.md` by an earlier version, taken out.
+ *
+ * Only whatever the user wrote around the markers survives; when nothing does,
+ * the file was ours alone and goes away rather than staying behind empty. This
+ * runs only alongside the block being rewritten under `.claude/`, so the
+ * instructions are never removed without being put back somewhere.
+ */
+export function legacyClaudeMdChange({ projectRoot, moduleId }) {
+  const absPath = join(projectRoot, LEGACY_CLAUDE_MD_PATH);
+  if (!existsSync(absPath)) return null;
+
+  const current = readFileSync(absPath, 'utf8');
+  const next = withoutBlock(current, moduleId);
+  if (next === null) return null;
+
+  return {
+    kind: 'claudeMd',
+    action: next === '' ? 'delete' : 'update',
+    path: LEGACY_CLAUDE_MD_PATH,
+    content: next,
+    hash: hashContent(next),
+    moduleId,
+    legacy: true,
+    unresolved: [],
   };
 }
 
@@ -166,7 +215,11 @@ export function buildPlan({ projectRoot, selection, answers, manifest }) {
       placeholders: module.placeholders ?? {},
       answers,
     });
-    if (change) changes.push(change);
+    if (!change) continue;
+    changes.push(change);
+
+    const legacy = legacyClaudeMdChange({ projectRoot, moduleId: module.id });
+    if (legacy) changes.push(legacy);
   }
 
   const settings = planSettingsMerge(projectRoot, settingsContributions);
@@ -187,7 +240,7 @@ export function buildPlan({ projectRoot, selection, answers, manifest }) {
     }
   }
 
-  const writes = changes.filter((c) => c.action === 'create' || c.action === 'update');
+  const writes = changes.filter((c) => c.action === 'create' || c.action === 'update' || c.action === 'delete');
 
   return {
     changes,

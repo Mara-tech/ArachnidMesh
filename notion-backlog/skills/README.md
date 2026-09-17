@@ -29,11 +29,11 @@ along the way are absorbed too.
 ## How to set this up
 
 Paths below are Claude Code's : `.claude/` at the root of your project, `skills/` and `rules/` inside it, and
-`CLAUDE.md` as the file always loaded. Another agent will use its own names — the layout is the same, only the folder
-changes.
+`.claude/CLAUDE.md` as the file always loaded. Another agent will use its own names — the layout is the same, only the
+folder changes.
 
 > **The short way.** `npx @mara-tech/arachnid-mesh` does everything below — it copies the files, fills
-> the placeholders in, grants the permissions `/go` needs, and writes the `CLAUDE.md` block. The steps
+> the placeholders in, grants the permissions `/go` needs, and writes the `.claude/CLAUDE.md` block. The steps
 > that follow are the same procedure by hand, and they stay the reference for what the wizard does.
 
 1. Create or locate the `.claude/` folder at the root of your project
@@ -59,21 +59,22 @@ changes.
    skill stop instead of guessing.
 5. Copy `rules/*.md` (all files except for `README.md`) under your `.claude/rules/`, and have a look at
    the [README](../rules/README.md)
-6. Add the `CLAUDE.md` fragments of what you installed: [claude-md/go.md](../claude-md/go.md),
+6. Add to `.claude/CLAUDE.md` the fragments of what you installed: [claude-md/go.md](../claude-md/go.md),
    [claude-md/go-auto.md](../claude-md/go-auto.md) **only if you installed `/go-auto`** — a `CLAUDE.md`
    announcing a command that does not exist sends the agent looking for it — and
-   [claude-md/framing.md](../claude-md/framing.md) if you kept `rules/framing.md`.
+   [claude-md/framing.md](../claude-md/framing.md) if you kept `rules/framing.md`. Their links are written
+   from `.claude/`: moving the block elsewhere means adapting them.
     1. Replace `<Backlog Name>` with the name of your Notion backlog
        you [should have created previously](../tools/README.md#how-to-set-this-up).
     2. Take a quick look at the paragraph, there might still be some links to adapt.
 
-Then check nothing was missed. **Scan `.claude/` entirely and `CLAUDE.md` with it**, not just the
-skills: three of the placeholders do not follow the `<your-…>` convention, and they live outside
-`.claude/skills/` — `<Backlog Name>` in `CLAUDE.md`, `<TICKET_ID_PREFIX>` and
-`<your-notion-database-url>` in `.claude/rules/`. This should print nothing:
+Then check nothing was missed. **Scan `.claude/` entirely**, not just the skills: three of the
+placeholders do not follow the `<your-…>` convention, and they live outside `.claude/skills/` —
+`<Backlog Name>` in `.claude/CLAUDE.md`, `<TICKET_ID_PREFIX>` and `<your-notion-database-url>` in
+`.claude/rules/`. This should print nothing:
 
 ```bash
-grep -rnE '<your-[a-z-]+>|<Backlog Name>|<TICKET_ID_PREFIX>|<repo-language>|<chat-language>' .claude/ CLAUDE.md
+grep -rnE '<your-[a-z-]+>|<Backlog Name>|<TICKET_ID_PREFIX>|<repo-language>|<chat-language>' .claude/
 ```
 
 `npx @mara-tech/arachnid-mesh doctor` runs the same check from the modules' own declarations, and

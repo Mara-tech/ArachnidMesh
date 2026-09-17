@@ -18,6 +18,7 @@ import {
   toProperties,
 } from '../src/notion.js';
 import { discoverModules } from '../src/modules.js';
+import { claudeMdChange, legacyClaudeMdChange } from '../src/plan.js';
 
 const PLACEHOLDERS = {
   '<your-notion-database>': 'dataSourceUri',
@@ -78,7 +79,7 @@ test('stripSetupOnly is a no-op on a file without the fence', () => {
 
 test('findUnresolved sees what the documented grep misses', () => {
   // `<Backlog Name>` does not follow the `<your-…>` convention, and lives in
-  // CLAUDE.md rather than under .claude/skills/.
+  // .claude/CLAUDE.md rather than under .claude/skills/.
   const found = findUnresolved('database **<Backlog Name>**', { '<Backlog Name>': 'backlogName' });
   assert.deepEqual(found, [{ token: '<Backlog Name>', key: 'backlogName' }]);
 });
@@ -265,4 +266,63 @@ test('the framing component is declared and its CLAUDE.md fragment exists', () =
   for (const path of [framing.claudeMd, framing.targets[0].from]) {
     assert.ok(existsSync(join(module.dir, path)), path);
   }
+});
+
+const ROOT_BLOCK = [
+  '<!-- arachnid:notion-backlog -->',
+  '## /go',
+  '<!-- /arachnid:notion-backlog -->',
+  '',
+].join('\n');
+
+function fakeModule(fragment) {
+  const dir = mkdtempSync(join(tmpdir(), 'arachnid-module-'));
+  mkdirSync(join(dir, 'claude-md'));
+  writeFileSync(join(dir, 'claude-md/go.md'), fragment);
+  return { id: 'notion-backlog', dir };
+}
+
+test('the CLAUDE.md block is written under .claude/, not at the project root', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  const change = claudeMdChange({
+    projectRoot,
+    module: fakeModule('## /go\nOne iteration, one ticket.\n'),
+    fragmentPaths: ['claude-md/go.md'],
+    placeholders: {},
+    answers: {},
+  });
+
+  assert.equal(change.path, '.claude/CLAUDE.md');
+  assert.equal(change.action, 'create');
+  assert.ok(change.content.includes('<!-- arachnid:notion-backlog -->'));
+  assert.ok(!existsSync(join(projectRoot, 'CLAUDE.md')), 'the plan writes nothing on its own');
+});
+
+test('a block left in the root CLAUDE.md is taken out, and what surrounds it stays', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  writeFileSync(join(projectRoot, 'CLAUDE.md'), `# Dharma\n\nWritten by hand.\n\n${ROOT_BLOCK}`);
+
+  const change = legacyClaudeMdChange({ projectRoot, moduleId: 'notion-backlog' });
+
+  assert.equal(change.action, 'update');
+  assert.equal(change.path, 'CLAUDE.md');
+  assert.equal(change.content, '# Dharma\n\nWritten by hand.\n');
+});
+
+test('a root CLAUDE.md holding nothing but our block is removed rather than left empty', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  writeFileSync(join(projectRoot, 'CLAUDE.md'), ROOT_BLOCK);
+
+  const change = legacyClaudeMdChange({ projectRoot, moduleId: 'notion-backlog' });
+
+  assert.equal(change.action, 'delete');
+  assert.equal(change.content, '');
+});
+
+test('a root CLAUDE.md we never wrote to is not touched', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'arachnid-'));
+  writeFileSync(join(projectRoot, 'CLAUDE.md'), '# Dharma\n');
+
+  assert.equal(legacyClaudeMdChange({ projectRoot, moduleId: 'notion-backlog' }), null);
+  assert.equal(legacyClaudeMdChange({ projectRoot: mkdtempSync(join(tmpdir(), 'arachnid-')), moduleId: 'notion-backlog' }), null);
 });

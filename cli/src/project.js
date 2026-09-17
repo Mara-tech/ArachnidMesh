@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { CLAUDE_MD_PATH, LEGACY_CLAUDE_MD_PATH } from './plan.js';
+
 function git(cwd, args) {
   try {
     return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -71,6 +73,6 @@ export function inspectProject(cwd) {
     branch: currentBranch(cwd),
     baseBranch: baseBranch(cwd),
     hasClaudeDir: existsSync(join(cwd, '.claude')),
-    hasClaudeMd: existsSync(join(cwd, 'CLAUDE.md')),
+    hasClaudeMd: existsSync(join(cwd, CLAUDE_MD_PATH)) || existsSync(join(cwd, LEGACY_CLAUDE_MD_PATH)),
   };
 }

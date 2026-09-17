@@ -217,7 +217,7 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
     return;
   }
 
-  const { written, skipped } = applyPlan({
+  const { written, removed, skipped } = applyPlan({
     projectRoot: project.root,
     plan,
     selection,
@@ -228,6 +228,9 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
   });
 
   log.success(`${written.length} file${written.length === 1 ? '' : 's'} written.`);
+  if (removed.length) {
+    log.info(`${removed.map((c) => c.path).join(', ')} held nothing but our block and was removed.`);
+  }
   if (skipped.length) {
     log.warn(`${skipped.length} left alone because you had edited them: ${skipped.map((c) => c.path).join(', ')}`);
   }
@@ -362,7 +365,7 @@ async function runHeadless({ modules, project, manifest, options }) {
   }
 
   const plan = buildPlan({ projectRoot: project.root, selection, answers, manifest });
-  const { written, skipped } = applyPlan({
+  const { written, removed, skipped } = applyPlan({
     projectRoot: project.root,
     plan,
     selection,
@@ -373,6 +376,7 @@ async function runHeadless({ modules, project, manifest, options }) {
   });
 
   for (const change of written) process.stdout.write(`written: ${change.path}\n`);
+  for (const change of removed) process.stdout.write(`removed: ${change.path}\n`);
   for (const change of skipped) process.stdout.write(`skipped (edited locally): ${change.path}\n`);
   for (const item of plan.unresolved) {
     process.stdout.write(`unconfigured: ${item.key} in ${item.path}\n`);
