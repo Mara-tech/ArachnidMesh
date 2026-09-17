@@ -70,8 +70,9 @@ than left empty.
 
 Two components do not write files at all — they call Notion:
 
-- **Create the Notion database** builds the backlog, its relations and its first framing tickets, and
-  hands back the `collection://…` URI the skills need.
+- **Create the Notion database** builds the backlog, its relations, its views (*Next tasks*, *Last
+  done*, *Group by status*) and its first framing tickets, and hands back the `collection://…` URI
+  the skills need. A view Notion refuses is reported and left to add by hand — the backlog is kept.
 - **« Writing a ticket » page** creates the page the rules and the skills point at, from the markdown
   shipped in the module, and brings an existing one up to date.
 

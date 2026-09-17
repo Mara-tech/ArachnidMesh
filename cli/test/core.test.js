@@ -23,6 +23,8 @@ import {
   richText,
   toBlocks,
   toProperties,
+  VIEWS,
+  viewRequest,
   writeTicketPage,
 } from '../src/notion.js';
 import { calloutIcon, codeLanguage, inlineRichText, splitDocument, toNotionBlocks } from '../src/markdown.js';
@@ -371,6 +373,50 @@ test('a ticket becomes properties and blocks Notion accepts', () => {
   const types = toBlocks(needs.body).map((block) => block.type);
   assert.ok(types.includes('heading_2') && types.includes('bulleted_list_item') && types.includes('paragraph'));
   assert.deepEqual(toBlocks(['- [ ] done?'])[0].to_do.checked, false);
+});
+
+test('every property a view names exists in the schema', async () => {
+  const source = (await import('node:fs')).readFileSync(new URL('../src/notion.js', import.meta.url), 'utf8');
+  const names = VIEWS.flatMap((view) => [
+    ...(view.columns ?? []),
+    ...view.sorts.map((sort) => sort.property),
+    ...(view.groupBy ? [view.groupBy] : []),
+  ]);
+  for (const name of new Set(names)) {
+    if (name === 'ID') continue; // added at creation, with the prefix
+    assert.match(source, new RegExp(`^  '?${name}'?: \{`, 'm'), name);
+  }
+});
+
+test('a view becomes a request with property ids, its columns first and the rest hidden', () => {
+  const properties = {
+    Titre: { id: 'title', type: 'title' },
+    ID: { id: 'id1', type: 'unique_id' },
+    Statut: { id: 'st', type: 'select' },
+    'Priorité': { id: 'pr', type: 'number' },
+    'Créé le': { id: 'cr', type: 'created_time' },
+    'Modifié le': { id: 'mo', type: 'last_edited_time' },
+    Genre: { id: 'ge', type: 'select' },
+    Tags: { id: 'ta', type: 'multi_select' },
+    Description: { id: 'de', type: 'rich_text' },
+  };
+  const context = { databaseId: 'db', dataSourceId: 'ds', properties };
+  const [next, , grouped] = VIEWS.map((view) => viewRequest(view, context));
+
+  assert.equal(next.data_source_id, 'ds');
+  assert.equal(next.database_id, 'db');
+  assert.deepEqual(next.filter.or.map((clause) => clause.select.equals), ['todo', 'in progress', 'review in progress']);
+  assert.deepEqual(
+    next.configuration.properties.map((column) => [column.property_id, column.visible]),
+    [['id1', true], ['title', true], ['st', true], ['pr', true], ['cr', true], ['ge', true], ['ta', true], ['mo', false], ['de', false]],
+  );
+
+  assert.equal(grouped.filter, undefined);
+  assert.equal(grouped.configuration.properties, undefined);
+  assert.deepEqual(grouped.configuration.group_by.property_id, 'st');
+  assert.deepEqual(grouped.sorts, [{ property: 'Modifié le', direction: 'descending' }]);
+
+  assert.throws(() => viewRequest(VIEWS[0], { ...context, properties: { Titre: properties.Titre } }), /does not have: ID/);
 });
 
 test('text over the 2000-character Notion limit is split, not truncated', () => {

@@ -281,10 +281,14 @@ class NotionBacklogCreator:
 
   1. Rafraîchir Notion (F5).
   2. Déplacer la colonne "ID" en première position (glisser l'en-tête).
-  3. Créer vos vues :
-       • "À faire"  : Statut = todo        | Tri Priorité ↓
-       • "En cours" : Statut = in progress  | Tri Modifié le ↓
-       • "Critique" : Priorité ≥ 4000 ET Statut ∉ {done, cancelled}
+  3. Créer vos vues (tableaux) :
+       • "Next tasks"      : Statut ∈ {todo, in progress, review in progress}
+                             | Tri Statut ↓, Priorité ↓
+                             | ID, Titre, Statut, Priorité, Créé le, Genre, Tags
+       • "Last done"       : Statut ∈ {done, in progress, review in progress}
+                             | Tri Modifié le ↓, Statut ↑
+                             | ID, Titre, Statut, Modifié le, Genre, Tags
+       • "Group by status" : Groupé par Statut | Tri Modifié le ↓
   4. C'est parti ! 🚀
 """)
 

@@ -142,7 +142,7 @@ async function runCreateBacklog(answers) {
   progress.start('Talking to Notion');
 
   try {
-    const result = await createBacklog({
+    const { viewsFailed, ...result } = await createBacklog({
       token: answers.notionToken,
       name: answers.backlogName,
       parentPageId: answers.notionParentPage,
@@ -150,6 +150,13 @@ async function runCreateBacklog(answers) {
       onProgress: (message) => progress.message(message),
     });
     progress.stop(`Backlog created — ${result.dataSourceUri}`);
+    if (viewsFailed.length) {
+      const lines = viewsFailed.map((view) => `${view.name}: ${view.reason}`);
+      log.warn(
+        `Notion refused ${viewsFailed.length === 1 ? 'a view' : 'some views'} — the backlog is fine, ` +
+          `add them by hand (notion-backlog/tools/README.md, step 8):\n  ${lines.join('\n  ')}`,
+      );
+    }
     return result;
   } catch (error) {
     progress.stop('Notion refused the call');

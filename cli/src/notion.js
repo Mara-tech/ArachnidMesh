@@ -221,11 +221,108 @@ export function toProperties(ticket, pageIds = {}) {
 }
 
 /**
- * Create the backlog database, its relations and its first tickets.
+ * The views a new backlog opens with, next to the default table Notion creates.
+ *
+ * Declared by property *name*: ids only exist once the data source does, and
+ * `viewRequest` swaps them in. A select sorts by the order of its options, so
+ * « Statut descending » reads review in progress → in progress → todo.
+ */
+const statusIn = (...names) => ({ or: names.map((name) => ({ property: 'Statut', select: { equals: name } })) });
+
+export const VIEWS = [
+  {
+    name: 'Next tasks',
+    filter: statusIn('todo', 'in progress', 'review in progress'),
+    sorts: [
+      { property: 'Statut', direction: 'descending' },
+      { property: 'Priorité', direction: 'descending' },
+    ],
+    columns: ['ID', 'Titre', 'Statut', 'Priorité', 'Créé le', 'Genre', 'Tags'],
+  },
+  {
+    name: 'Last done',
+    filter: statusIn('done', 'in progress', 'review in progress'),
+    sorts: [
+      { property: 'Modifié le', direction: 'descending' },
+      { property: 'Statut', direction: 'ascending' },
+    ],
+    columns: ['ID', 'Titre', 'Statut', 'Modifié le', 'Genre', 'Tags'],
+  },
+  {
+    name: 'Group by status',
+    groupBy: 'Statut',
+    sorts: [{ property: 'Modifié le', direction: 'descending' }],
+  },
+];
+
+/**
+ * The body of `POST /views` for one view, given the data source's properties as
+ * Notion returned them (`{ name: { id, type } }`).
+ *
+ * A view that lists columns shows those, in that order, and hides every other
+ * one; a view that does not keeps Notion's default layout.
+ */
+export function viewRequest(view, { databaseId, dataSourceId, properties }) {
+  const idOf = (name) => {
+    const property = properties[name];
+    if (!property) throw new Error(`View “${view.name}” names a property the backlog does not have: ${name}`);
+    return property.id;
+  };
+
+  const configuration = { type: 'table' };
+  if (view.columns) {
+    const shown = view.columns.map((name) => ({ property_id: idOf(name), visible: true }));
+    const hidden = Object.keys(properties)
+      .filter((name) => !view.columns.includes(name))
+      .map((name) => ({ property_id: idOf(name), visible: false }));
+    configuration.properties = [...shown, ...hidden];
+  }
+  if (view.groupBy) {
+    configuration.group_by = {
+      type: properties[view.groupBy]?.type ?? 'select',
+      property_id: idOf(view.groupBy),
+      sort: { direction: 'ascending' },
+      hide_empty_groups: false,
+    };
+  }
+
+  return {
+    database_id: databaseId,
+    data_source_id: dataSourceId,
+    name: view.name,
+    type: 'table',
+    ...(view.filter && { filter: view.filter }),
+    sorts: view.sorts,
+    configuration,
+  };
+}
+
+/**
+ * Create the views on a backlog. A view Notion refuses is reported, not
+ * thrown: the backlog already exists by then, and losing its URI over a view
+ * the user can add by hand would be the worse outcome.
+ *
+ * @returns the names of the views that could not be created.
+ */
+export async function createViews({ token, databaseId, dataSourceId, properties, views = VIEWS, onProgress = () => {} }) {
+  const failed = [];
+  for (const view of views) {
+    onProgress(`Creating the view “${view.name}”…`);
+    try {
+      await call(token, 'POST', '/views', viewRequest(view, { databaseId, dataSourceId, properties }));
+    } catch (error) {
+      failed.push({ name: view.name, reason: error.message });
+    }
+  }
+  return failed;
+}
+
+/**
+ * Create the backlog database, its relations, its views and its first tickets.
  *
  * @returns the answers this action provides — the data source URI and the URL,
  *   which is why ticking this component removes those questions from the
- *   configuration screen.
+ *   configuration screen. `viewsFailed` is not an answer, only something to report.
  */
 export async function createBacklog({ token, name, parentPageId, prefix, onProgress = () => {} }) {
   const idPrefix = normalisePrefix(prefix, name);
@@ -243,7 +340,7 @@ export async function createBacklog({ token, name, parentPageId, prefix, onProgr
   if (!dataSourceId) throw new Error('Notion created the database but returned no data source.');
 
   onProgress('Adding the self-referencing relations…');
-  await call(token, 'PATCH', `/data_sources/${dataSourceId}`, {
+  const dataSource = await call(token, 'PATCH', `/data_sources/${dataSourceId}`, {
     properties: {
       'Dépend de': {
         relation: {
@@ -256,6 +353,14 @@ export async function createBacklog({ token, name, parentPageId, prefix, onProgr
         relation: { data_source_id: dataSourceId, type: 'single_property', single_property: {} },
       },
     },
+  });
+
+  const viewsFailed = await createViews({
+    token,
+    databaseId: database.id,
+    dataSourceId,
+    properties: dataSource.properties ?? {},
+    onProgress,
   });
 
   onProgress('Creating the framing tickets…');
@@ -274,6 +379,7 @@ export async function createBacklog({ token, name, parentPageId, prefix, onProgr
     backlogUrl: database.url,
     backlogName: name,
     ticketPrefix: idPrefix,
+    viewsFailed,
   };
 }
 

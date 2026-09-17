@@ -290,7 +290,7 @@
       "id": "create-database",
       "label": "Create the Notion database",
       "kind": "action",
-      "description": "schema, relations and the first framing tickets",
+      "description": "schema, relations, views and the first framing tickets",
       "warning": "needs a Notion token",
       "needs": [
         "notionToken",

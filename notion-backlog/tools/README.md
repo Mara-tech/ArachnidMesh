@@ -18,7 +18,7 @@ From the project you want to equip:
 npx @mara-tech/arachnid-mesh
 ```
 
-Tick **Create the Notion database** and it does steps 1 and 7 below for you, hands back the
+Tick **Create the Notion database** and it does steps 1, 7 and 8 below for you, hands back the
 `collection://…` URI, and installs the skills and rules configured with it — in one pass. Tick
 **« Writing a ticket » page** and it does step 2, then keeps that page up to date on every later run.
 You still need steps 3 to 5 first: an integration token, and the two authorizations on the parent
@@ -79,7 +79,20 @@ This is a separate authorization from the token above — the token is for the s
     - `<TOKEN>` is the Notion access token you copied in step 3 (e.g `ntn_e30a16...`). It can also be passed through the `NOTION_TOKEN` environment variable.
     - `<TICKET_ID_PREFIX>` is optional. It is the prefix you want to use for your tickets (e.g `DHA`). If not provided, it will be guessed from the name.
 
-8. **Check it landed.** Refresh Notion (`F5`) : your backlog now sits under `Backlogs`, and it holds **four framing tickets**, chained by `Dépend de`.
+8. **Create the views.** The script does not — Notion's API only learnt to create views on a newer
+version than the one it speaks. Open the backlog, **+** next to the default view → **Table**, then
+set each one's filter, sort and visible properties (`···` → **Properties**):
+
+    | View | Filter | Sort | Properties shown |
+    |---|---|---|---|
+    | **Next tasks** | `Statut` is `todo`, `in progress` or `review in progress` | `Statut` ↓, then `Priorité` ↓ | `ID`, `Titre`, `Statut`, `Priorité`, `Créé le`, `Genre`, `Tags` |
+    | **Last done** | `Statut` is `done`, `in progress` or `review in progress` | `Modifié le` ↓, then `Statut` ↑ | `ID`, `Titre`, `Statut`, `Modifié le`, `Genre`, `Tags` |
+    | **Group by status** | — | `Modifié le` ↓ | all; **Group** by `Statut` |
+
+    A select sorts in the order of its options, so `Statut` ↓ puts `review in progress` first, then
+    `in progress`, then `todo` : what is closest to done comes first.
+
+9. **Check it landed.** Refresh Notion (`F5`) : your backlog now sits under `Backlogs`, and it holds **four framing tickets**, chained by `Dépend de`.
 They are not a connection test to delete — they are the first iterations of your project, the one ticket « defining roughly your idea » described above, cut in four:
 
     | Priority | Ticket | Produces |
