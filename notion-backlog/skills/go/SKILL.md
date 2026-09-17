@@ -11,7 +11,7 @@ already open, say so and stop.
 
 Facts about the backlog — database, language, what this repository adds — are in
 [.claude/rules/notion-tickets.md](../../rules/notion-tickets.md), already in context. How a ticket is
-written is the Notion page it links to, « Rédiger un ticket »; steps 4 and 11 need it.
+written is the Notion page it links to, « Writing a ticket »; steps 4 and 11 need it.
 
 **This file holds the decisions; the git and CI mechanics are next to it**, in
 [references/pull-request.md](references/pull-request.md) — cutting the branch safely, pushing without
@@ -159,7 +159,7 @@ ask now — not after the branch exists.
 ## 4. Split it if it is too big — the user decides, not you
 
 A ticket that cannot be taken to review in one pass is not a ticket to start bravely, it is a ticket
-to split. « Rédiger un ticket » lists the signs that a ticket holds two; on this project, add these:
+to split. « Writing a ticket » lists the signs that a ticket holds two; on this project, add these:
 the Definition of Done cannot be honestly ticked by one coherent commit, the work spans layers that
 would each want their own review, or an arbitration sits in the middle of the path.
 
@@ -169,7 +169,7 @@ carries on at step 5 as if nothing had happened.
 
 If the user accepts, and only then:
 
-1. **Write the children** as « Rédiger un ticket » says — each one self-contained, each with its own
+1. **Write the children** as « Writing a ticket » says — each one self-contained, each with its own
    Definition of Done. What the parent held is distributed between them, not copied into each.
 2. **The children take the parent's place in the queue, in order.** The last child inherits the
    parent's exact priority; each earlier one sits one step above it. A parent at 100 split in two
@@ -324,7 +324,7 @@ unreviewed". Say which of the two you are giving up, in the report and in the fi
 Append to the **body of the Notion page**, in the conversation language — not the `Commentaires`
 property.
 
-What a report carries is on « Rédiger un ticket ». Two things that page cannot know about this
+What a report carries is on « Writing a ticket ». Two things that page cannot know about this
 project, and they are the ones that get skipped:
 
 - **the test results**: how many tests, in which files, and the proof that they bite (which
@@ -348,7 +348,7 @@ Anything the work turns up that does not belong to this ticket becomes **its own
 — a defect too large to fix in passing, an arbitration to be made, a module whose tests are thin, or
 a deliverable that is itself a set of tickets ("define the backlog from spec files").
 
-Write it as « Rédiger un ticket » says. **Say out loud what priority you chose and why**: a defect
+Write it as « Writing a ticket » says. **Say out loud what priority you chose and why**: a defect
 that silently corrupts a save outranks a cosmetic cleanup.
 
 A ticket born of a review remark **quotes the remark that produced it**. That sentence is what makes

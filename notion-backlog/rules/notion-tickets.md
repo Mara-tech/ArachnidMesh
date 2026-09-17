@@ -5,7 +5,7 @@ Work on this project is tracked in the Notion database **<Backlog Name>**, data 
 ([open it](<your-notion-database-url>)).
 
 **How a ticket is written in the Notion page
-[Rédiger un ticket](<your-ticket-writing-instructions-notion-page>)**, next to the database:
+[Writing a ticket](<your-ticket-writing-instructions-notion-page>)**, next to the database:
 every property, which ones are mandatory, when and how to fill the optional ones, how to place a
 priority, how to write a Definition of Done. That page is shared by every backlog and it is the
 authority — read it before creating or filling a ticket, and do not restate it here. What follows is

@@ -19,8 +19,10 @@ npx @mara-tech/arachnid-mesh
 ```
 
 Tick **Create the Notion database** and it does steps 1 and 7 below for you, hands back the
-`collection://…` URI, and installs the skills and rules configured with it — in one pass. You still
-need steps 3 to 5 first: an integration token, and the two authorizations on the parent page.
+`collection://…` URI, and installs the skills and rules configured with it — in one pass. Tick
+**« Writing a ticket » page** and it does step 2, then keeps that page up to date on every later run.
+You still need steps 3 to 5 first: an integration token, and the two authorizations on the parent
+page.
 
 Everything below is the same thing by hand, and stays the reference for what the wizard does.
 
@@ -35,9 +37,18 @@ Everything below is the same thing by hand, and stays the reference for what the
 
 1. From Notion, create a new page. I recommend to name it `Backlogs`, as it will be the parent page for all your backlogs, as you'll probably have several ideas. 
 
-2. Create a regular page under `Backlogs` that will hold instructions for how a ticket should be created. 
-Copy the content of [this page](Rédiger%20un%20ticket.md).
+2. Create a regular page under `Backlogs` that will hold instructions for how a ticket should be
+created, named **Writing a ticket**. Copy the content of [writing-a-ticket.md](writing-a-ticket.md)
+into it, footer included.
 Note : It could be a rule, but when you are using a [project](../project/README.md), with no coding access, you can have these instructions centralized directly in Notion.
+
+    That page ships with the module, so it has a version — the `arachnid-mesh:writing-a-ticket:vN`
+    marker in its footer. A standalone Notion page carries no metadata beyond its title, so the
+    version travels in the page itself. The wizard reads it back, compares it with the version it
+    ships, and offers to rewrite the page when a newer one exists — yes by default. A page with no
+    marker is one the wizard never wrote: it still offers, but defaults to **no**, because rewriting
+    throws away whatever you had written there.
+
 3. Create a new access token from [Notion connection settings](https://app.notion.com/developers/connections). Copy it.
 
 4. **Give that token access to the `Backlogs` page.** In Notion, open `Backlogs` → `···` → **Connections** → add the integration you just created.
@@ -84,6 +95,8 @@ They are not a connection test to delete — they are the first iterations of yo
 
 
 ## Next steps
+- Keep [writing-a-ticket.md](writing-a-ticket.md) and the Notion page in step 2 in sync — or let
+  `npx @mara-tech/arachnid-mesh` do it, which is what the **« Writing a ticket » page** component is.
 - Get the `collection://…` URI of your new backlog with [get_data_source_id.py](get_data_source_id.py) — the rules and skills need it.
   (`npx @mara-tech/arachnid-mesh` resolves it for you from the backlog URL, or hands it back directly when it created the database.)
 - Want to talk to explain your idea ? Check out [Project instructions](../project/README.md)

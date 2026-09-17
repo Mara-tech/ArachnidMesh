@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,14 +9,21 @@ import { planSettingsMerge } from '../src/settings.js';
 import { resolveRequires } from '../src/select.js';
 import { planQuestions } from '../src/questions.js';
 import {
+  batches,
   extractId,
   loadSampleTickets,
+  loadTicketPage,
   makePrefix,
   normalisePrefix,
+  pageVersion,
+  planTicketPage,
+  plainText,
   richText,
   toBlocks,
   toProperties,
+  writeTicketPage,
 } from '../src/notion.js';
+import { calloutIcon, codeLanguage, inlineRichText, splitDocument, toNotionBlocks } from '../src/markdown.js';
 import { discoverModules } from '../src/modules.js';
 import { claudeMdChange, legacyClaudeMdChange } from '../src/plan.js';
 
@@ -187,7 +194,7 @@ test('previous answers win over derived defaults', () => {
 });
 
 test('extractId anchors on the end, so a slug full of hex does not win', () => {
-  const url = 'https://app.notion.com/p/rediger-un-ticket-3bc095c7d7e48197acb6e133331aa977';
+  const url = 'https://app.notion.com/p/writing-a-ticket-3bc095c7d7e48197acb6e133331aa977';
   assert.equal(extractId(url), '3bc095c7-d7e4-8197-acb6-e133331aa977');
 });
 
@@ -212,7 +219,7 @@ test('a typed prefix is sanitised the same way a derived one is', () => {
   assert.equal(normalisePrefix('!!!', 'Dharma Project'), 'DP');
 });
 
-test('the first tickets obey « Rédiger un ticket »: todo, and never above a dependency', () => {
+test('the first tickets obey « Writing a ticket »: todo, and never above a dependency', () => {
   const tickets = loadSampleTickets();
   const byKey = new Map(tickets.map((ticket) => [ticket.key, ticket]));
   const seen = new Set();
@@ -325,4 +332,302 @@ test('a root CLAUDE.md we never wrote to is not touched', () => {
 
   assert.equal(legacyClaudeMdChange({ projectRoot, moduleId: 'notion-backlog' }), null);
   assert.equal(legacyClaudeMdChange({ projectRoot: mkdtempSync(join(tmpdir(), 'arachnid-')), moduleId: 'notion-backlog' }), null);
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Markdown → Notion blocks                                                   */
+/* -------------------------------------------------------------------------- */
+
+const typesOf = (blocks) => blocks.map((block) => block.type);
+const textOf = (block) => (block[block.type].rich_text ?? []).map((piece) => piece.text.content).join('');
+
+test('inline marks become annotations, and a link keeps its url', () => {
+  const pieces = inlineRichText('a **bold** word, `code`, and [a link](https://example.com/x)');
+
+  assert.deepEqual(pieces.map((piece) => piece.text.content), [
+    'a ', 'bold', ' word, ', 'code', ', and ', 'a link',
+  ]);
+  assert.deepEqual(pieces[1].annotations, { bold: true });
+  assert.deepEqual(pieces[3].annotations, { code: true });
+  assert.deepEqual(pieces[5].text.link, { url: 'https://example.com/x' });
+});
+
+test('bold wins over italics, so ** is never read as two *', () => {
+  const [piece] = inlineRichText('**both**');
+  assert.deepEqual(piece.annotations, { bold: true });
+  assert.equal(piece.text.content, 'both');
+});
+
+test('each markdown construct lands on the block Notion expects', () => {
+  const blocks = toNotionBlocks([
+    '## A heading',
+    '',
+    'A paragraph',
+    'wrapped over two lines.',
+    '',
+    '- a bullet',
+    '- [ ] a box',
+    '- [x] a ticked box',
+    '',
+    '1. first',
+    '',
+    '---',
+    '',
+    '```js',
+    'const x = 1;',
+    '```',
+  ].join('\n'));
+
+  assert.deepEqual(typesOf(blocks), [
+    'heading_2', 'paragraph', 'bulleted_list_item', 'to_do', 'to_do',
+    'numbered_list_item', 'divider', 'code',
+  ]);
+  assert.equal(textOf(blocks[1]), 'A paragraph wrapped over two lines.', 'the hard wrap is presentation');
+  assert.equal(blocks[3].to_do.checked, false);
+  assert.equal(blocks[4].to_do.checked, true);
+  assert.equal(blocks[7].code.language, 'javascript');
+  assert.equal(textOf(blocks[7]), 'const x = 1;');
+});
+
+test('a fenced block is copied verbatim, markdown inside and all', () => {
+  const blocks = toNotionBlocks(['```markdown', '## not a heading', '- [ ] not a box', '```'].join('\n'));
+
+  assert.deepEqual(typesOf(blocks), ['code']);
+  assert.equal(textOf(blocks[0]), '## not a heading\n- [ ] not a box');
+});
+
+test('an unknown fence language falls back rather than having Notion reject it', () => {
+  assert.equal(codeLanguage('scala'), 'scala');
+  assert.equal(codeLanguage('py'), 'python');
+  assert.equal(codeLanguage(''), 'plain text');
+  assert.equal(codeLanguage('brainfuck'), 'plain text');
+});
+
+test('a quote that opens on an emoji becomes a callout, wearing it as its icon', () => {
+  const [callout] = toNotionBlocks(['> ⚠️', '> Careful: this **bites**.'].join('\n'));
+
+  assert.equal(callout.type, 'callout');
+  assert.deepEqual(callout.callout.icon, { type: 'emoji', emoji: '⚠️' });
+  assert.equal(textOf(callout), 'Careful: this bites.');
+});
+
+test('a quote without an icon stays a quote', () => {
+  const [quote] = toNotionBlocks('> just a quote');
+  assert.equal(quote.type, 'quote');
+  assert.equal(calloutIcon('just a quote'), null);
+});
+
+test('a table drops its separator row and keeps it as a column header', () => {
+  const [table] = toNotionBlocks([
+    '| Property | What it carries |',
+    '| --- | --- |',
+    '| `Statut` | always todo |',
+  ].join('\n'));
+
+  assert.equal(table.type, 'table');
+  assert.equal(table.table.table_width, 2);
+  assert.equal(table.table.has_column_header, true);
+  assert.equal(table.table.children.length, 2, 'the separator is not a row');
+  assert.equal(table.table.children[1].table_row.cells[0][0].text.content, 'Statut');
+});
+
+test('a short row is padded, so every row holds table_width cells', () => {
+  const [table] = toNotionBlocks(['| a | b | c |', '| --- | --- | --- |', '| only one |'].join('\n'));
+
+  assert.equal(table.table.table_width, 3);
+  assert.equal(table.table.children[1].table_row.cells.length, 3);
+});
+
+test('the title leaves the body, since a Notion page holds it as a property', () => {
+  const { title, body } = splitDocument('# Writing a ticket\n\nThe body.\n');
+
+  assert.equal(title, 'Writing a ticket');
+  assert.equal(body.trim(), 'The body.');
+  assert.deepEqual(typesOf(toNotionBlocks(body)), ['paragraph']);
+});
+
+/* -------------------------------------------------------------------------- */
+/*  « Writing a ticket » — the page shipped with the module                     */
+/* -------------------------------------------------------------------------- */
+
+test('the shipped page carries a title and a version, and converts whole', () => {
+  const page = loadTicketPage();
+
+  assert.equal(page.title, 'Writing a ticket');
+  assert.ok(Number.isInteger(page.version) && page.version >= 1, 'an integer version');
+  assert.ok(page.blocks.length > 50, 'the whole page, not a fragment');
+
+  // The page is what tells a reader — and the next run — which version it is.
+  assert.equal(pageVersion(page.markdown), page.version);
+  assert.ok(page.blocks.every((block) => typeof block[block.type] === 'object'), 'every block is well formed');
+});
+
+test('a page with no marker reads as unversioned rather than as version 0', () => {
+  assert.equal(pageVersion('nothing here'), null);
+  assert.equal(pageVersion('… `arachnid-mesh:writing-a-ticket:v12` — shipped'), 12);
+});
+
+test('plainText digs the marker out of the blocks Notion hands back', () => {
+  const blocks = [
+    { type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'some prose' }] } },
+    { type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'arachnid-mesh:writing-a-ticket:v3' }, { plain_text: ' — shipped' }] } },
+  ];
+
+  assert.equal(pageVersion(plainText(blocks)), 3);
+});
+
+test('an update is proposed with yes as the default, and a no-op is never proposed', () => {
+  assert.deepEqual(
+    planTicketPage({ shipped: 3, installed: 2 }),
+    { action: 'replace', defaultAnswer: true, message: 'A newer page ships with this CLI: version 2 → 3.' },
+  );
+  assert.equal(planTicketPage({ shipped: 3, installed: 3 }).action, 'skip');
+  assert.equal(planTicketPage({ shipped: 3, installed: 4 }).action, 'skip', 'a newer page is left alone');
+});
+
+test('a page this wizard never wrote defaults to no — its content is somebody else\'s', () => {
+  const decision = planTicketPage({ shipped: 3, installed: null });
+
+  assert.equal(decision.action, 'replace');
+  assert.equal(decision.defaultAnswer, false);
+  assert.match(decision.message, /no ArachnidMesh version marker/);
+});
+
+test('batches never hand Notion more than the 100 children it accepts', () => {
+  assert.deepEqual(batches(Array.from({ length: 213 }, (_, i) => i)).map((b) => b.length), [100, 100, 13]);
+  assert.deepEqual(batches([]), []);
+});
+
+/* A Notion that records what it was asked, so the write paths can be walked. */
+function stubNotion(reply = () => ({})) {
+  const calls = [];
+  const original = globalThis.fetch;
+
+  globalThis.fetch = async (url, init) => {
+    const call = {
+      method: init.method,
+      path: String(url).replace('https://api.notion.com/v1', ''),
+      body: init.body ? JSON.parse(init.body) : null,
+    };
+    calls.push(call);
+    return { ok: true, status: 200, text: async () => JSON.stringify(reply(call) ?? {}) };
+  };
+
+  return { calls, restore: () => { globalThis.fetch = original; } };
+}
+
+const PAGE_URL = 'https://app.notion.com/p/writing-a-ticket-3bc095c7d7e48197acb6e133331aa977';
+const PAGE_ID = '3bc095c7-d7e4-8197-acb6-e133331aa977';
+
+const fakePage = (version, blocks = 3) => ({
+  title: 'Writing a ticket',
+  version,
+  markdown: `# Writing a ticket\n\narachnid-mesh:writing-a-ticket:v${version}`,
+  blocks: Array.from({ length: blocks }, (_, i) => ({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: `block ${i}` } }] } })),
+});
+
+const childrenReply = (marker) => ({
+  results: [
+    { id: 'old-1', type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'old prose' }] } },
+    { id: 'old-2', type: 'paragraph', paragraph: { rich_text: [{ plain_text: marker }] } },
+  ],
+  has_more: false,
+});
+
+test('creating the page sends the title as a property and the body in batches of 100', async () => {
+  const notion = stubNotion(({ path }) =>
+    path === '/pages' ? { id: 'page-id', url: 'https://notion.so/new-page' } : {});
+
+  try {
+    const result = await writeTicketPage({
+      token: 't',
+      parentPageId: 'https://app.notion.com/p/Backlogs-3bc095c7d7e48197acb6e133331aa977',
+      page: fakePage(1, 142),
+    });
+
+    assert.equal(result.outcome, 'created');
+    assert.equal(result.ticketPageUrl, 'https://notion.so/new-page');
+
+    const [create, ...appends] = notion.calls;
+    assert.equal(create.method, 'POST');
+    assert.equal(create.body.parent.page_id, PAGE_ID);
+    assert.deepEqual(create.body.properties.title.title[0].text.content, 'Writing a ticket');
+    assert.equal(create.body.children.length, 100);
+    assert.deepEqual(appends.map((c) => c.body.children.length), [42]);
+    assert.ok(appends.every((c) => c.method === 'PATCH' && c.path === '/blocks/page-id/children'));
+  } finally {
+    notion.restore();
+  }
+});
+
+test('updating appends before deleting, so a failure never empties the page', async () => {
+  const notion = stubNotion(({ method, path }) =>
+    method === 'GET' && path.startsWith(`/blocks/${PAGE_ID}/children`)
+      ? childrenReply('arachnid-mesh:writing-a-ticket:v1')
+      : {});
+
+  try {
+    const result = await writeTicketPage({
+      token: 't',
+      pageUrl: PAGE_URL,
+      page: fakePage(2),
+      confirm: async (decision) => decision.defaultAnswer,
+    });
+
+    assert.equal(result.outcome, 'updated');
+    assert.equal(result.version, 2);
+
+    const methods = notion.calls.map((call) => `${call.method} ${call.path}`);
+    assert.deepEqual(methods, [
+      `GET /blocks/${PAGE_ID}/children?page_size=100`,
+      `PATCH /blocks/${PAGE_ID}/children`,
+      'DELETE /blocks/old-1',
+      'DELETE /blocks/old-2',
+      `PATCH /pages/${PAGE_ID}`,
+    ]);
+  } finally {
+    notion.restore();
+  }
+});
+
+test('a page already at the shipped version is read and left untouched', async () => {
+  const notion = stubNotion(() => childrenReply('arachnid-mesh:writing-a-ticket:v2'));
+
+  try {
+    const result = await writeTicketPage({ token: 't', pageUrl: PAGE_URL, page: fakePage(2) });
+
+    assert.equal(result.outcome, 'skipped');
+    assert.deepEqual(notion.calls.map((call) => call.method), ['GET'], 'nothing was written');
+  } finally {
+    notion.restore();
+  }
+});
+
+test('saying no to the update writes nothing at all', async () => {
+  const notion = stubNotion(() => childrenReply('arachnid-mesh:writing-a-ticket:v1'));
+
+  try {
+    const result = await writeTicketPage({
+      token: 't',
+      pageUrl: PAGE_URL,
+      page: fakePage(2),
+      confirm: async () => false,
+    });
+
+    assert.equal(result.outcome, 'declined');
+    assert.deepEqual(notion.calls.map((call) => call.method), ['GET']);
+  } finally {
+    notion.restore();
+  }
+});
+
+test('every action a module declares is registered in the CLI', () => {
+  const source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
+
+  for (const module of discoverModules()) {
+    for (const component of module.components) {
+      if (!component.action) continue;
+      assert.match(source, new RegExp(`'${component.action}':`), `${module.id}/${component.id}`);
+    }
+  }
 });

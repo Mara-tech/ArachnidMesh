@@ -27,7 +27,7 @@ import {
   readManifest,
   writeManifest,
 } from './manifest.js';
-import { createBacklog } from './notion.js';
+import { createBacklog, loadTicketPage, writeTicketPage } from './notion.js';
 import { buildPlan } from './plan.js';
 import { inspectProject } from './project.js';
 import { planQuestions, questionCatalogue } from './questions.js';
@@ -44,7 +44,10 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const CLI_VERSION = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')).version;
 
-const ACTIONS = { 'notion.createBacklog': runCreateBacklog };
+const ACTIONS = {
+  'notion.createBacklog': runCreateBacklog,
+  'notion.writeTicketPage': runWriteTicketPage,
+};
 
 function stopIfCancelled(value) {
   if (isCancel(value)) {
@@ -142,6 +145,64 @@ async function runCreateBacklog(answers) {
   }
 }
 
+/**
+ * Create the « Writing a ticket » page, or bring it up to the shipped version.
+ *
+ * The decision of whether to overwrite is `planTicketPage`'s; this only asks
+ * it, with the answer that decision says should be the default — yes for a page
+ * this wizard wrote and that a newer version supersedes, no for a page it never
+ * wrote, whose content overwriting would throw away.
+ */
+async function runWriteTicketPage(answers, { interactive } = {}) {
+  const page = loadTicketPage();
+
+  if (!answers.notionToken) {
+    log.warn(`No Notion token given — the « ${page.title} » page was left alone.`);
+    return {};
+  }
+
+  const progress = interactive ? spinner() : null;
+  progress?.start('Talking to Notion');
+  const say = (message) => (progress ? progress.message(message) : process.stdout.write(`${message}\n`));
+
+  try {
+    const result = await writeTicketPage({
+      token: answers.notionToken,
+      parentPageId: answers.notionParentPage,
+      pageUrl: answers.ticketPageUrl,
+      page,
+      onProgress: say,
+      confirm: async (decision) => {
+        if (!interactive) return decision.defaultAnswer;
+
+        // A spinner and a prompt cannot share the terminal: park it, ask, resume.
+        progress.stop(decision.message);
+        const answer = await confirm({
+          message: `Update the Notion page « ${page.title} »?`,
+          initialValue: decision.defaultAnswer,
+        });
+        progress.start('Talking to Notion');
+        return isCancel(answer) ? false : answer;
+      },
+    });
+
+    const OUTCOME = {
+      created: `Page created — ${result.ticketPageUrl}`,
+      updated: `Page updated to version ${result.version} — ${result.ticketPageUrl}`,
+      skipped: result.decision?.message ?? 'Page left alone',
+      declined: interactive
+        ? 'Page left alone, as you asked'
+        : `Page left alone — ${result.decision?.message ?? 'it needs a yes this run could not ask for'}`,
+    };
+    progress ? progress.stop(OUTCOME[result.outcome]) : process.stdout.write(`${OUTCOME[result.outcome]}\n`);
+
+    return { ticketPageUrl: result.ticketPageUrl };
+  } catch (error) {
+    progress?.stop('Notion refused the call');
+    throw error;
+  }
+}
+
 async function runWriteVerb({ verb, modules, project, manifest, options }) {
   const installedKeys = installedComponents(manifest);
   const restrictTo = verb === 'install' ? null : installedKeys;
@@ -200,7 +261,7 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
     if (!component.action) continue;
     const action = ACTIONS[component.action];
     if (!action) throw new Error(`Unknown action: ${component.action}`);
-    Object.assign(answers, await action(answers));
+    Object.assign(answers, await action(answers, { interactive: true }));
   }
 
   const plan = buildPlan({ projectRoot: project.root, selection, answers, manifest });
@@ -361,7 +422,7 @@ async function runHeadless({ modules, project, manifest, options }) {
 
   for (const { component } of selection) {
     if (!component.action) continue;
-    Object.assign(answers, await ACTIONS[component.action](answers));
+    Object.assign(answers, await ACTIONS[component.action](answers, { interactive: false }));
   }
 
   const plan = buildPlan({ projectRoot: project.root, selection, answers, manifest });
