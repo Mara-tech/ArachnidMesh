@@ -16,6 +16,12 @@ Default behavior will push and create a pull request. It should wait for the CI 
 
 With option ``--auto-merge``, it will also merge the PR.
 
+With option ``--with-demo``, the PR also carries a **visual demonstration** of the change — an HTML page, a
+shareable Claude artifact, or something built in the repo — aimed at the product owner, not at the reviewer.
+Some changes lend themselves to none, and saying so is a valid outcome. It is off by default, and a project
+that wants a demonstration every time flips that default in one word inside its own ``go/SKILL.md``, then uses
+``--no-demo`` for the exceptions.
+
 ## `/go-auto` skill
 
 Be ready to give max autonomy to the IA. Will you be confident enough ?
@@ -39,8 +45,8 @@ folder changes.
 1. Create or locate the `.claude/` folder at the root of your project
 2. There, create a `skills/` and a `rules/` folder
 3. Copy `go/`, and if you want `go-auto/`, under your project's `.claude/skills/`.
-   Copy `go/references/` along with it — it holds the git and CI mechanics, which are the same on every
-   project and have nothing to fill in.
+   Copy `go/references/` along with it — it holds the git and CI mechanics and what a `--with-demo`
+   demonstration is made of, both the same on every project and with nothing to fill in.
 4. **Fill in the placeholders of `go/SKILL.md`.** The skill is a template — it describes the
    procedure, not your project — and it is written to stop rather than guess if one is left in.
    They are the only thing to edit, they are listed in one table at the top of the file, and there

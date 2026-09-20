@@ -1,6 +1,6 @@
 ---
 name: go-auto
-description: Run one backlog iteration end to end in an isolated context — the same procedure as /go, taken through the merge without stopping for review. Accepts --until=<id>-n to keep chaining iterations until that ticket reaches the top of the queue. Built for chaining with /loop.
+description: Run one backlog iteration end to end in an isolated context — the same procedure as /go, taken through the merge without stopping for review. Accepts --until=<id>-n to keep chaining iterations until that ticket reaches the top of the queue, and passes the other /go flags through. Built for chaining with /loop.
 context: fork
 background: false
 ---
@@ -9,7 +9,8 @@ background: false
 
 Read [.claude/skills/go/SKILL.md](../go/SKILL.md) and execute it **in `--auto-merge` mode**, plus
 whatever else is in `$ARGUMENTS` **except `--until=<id>-n`, which is consumed here and not passed
-on**. `--max-review-passes=N`, by contrast, goes through and stays adjustable at the invocation.
+on**. `--max-review-passes=N` and `--with-demo`, by contrast, go through and stay adjustable at the
+invocation.
 
 That file is the procedure. This one only says what running in an isolated context changes. It is not
 a second procedure, and nothing in it may contradict the first: if the two ever disagree, `/go` wins
@@ -104,12 +105,16 @@ the merge and turns the run into a handover.
 Only the final report returns to the main conversation — the working context is discarded. Write it
 in the conversation language, and make it enough to reconstruct the run without opening anything.
 
-**Under `--until` the first five are per iteration**, one entry each, in the order they ran — a chain
+**Under `--until` the first six are per iteration**, one entry each, in the order they ran — a chain
 of merged iterations reported as though it were one is a chain nobody can check afterwards.
 
 - the ticket taken, and the reading you acted on;
 - the pull request, and the verdict of every check;
 - the review triage: fixed, ticketed with their IDs, rejected with the reason;
+- under `--with-demo`, **the demonstration as a link**, or the line saying the change lent itself to
+  none. A demonstration that only the working context knew about is lost with it, so the link is the
+  deliverable here — an artifact URL, or where it sits in the repository now that the branch is
+  merged;
 - whether that iteration merged or stopped, and on which hard stop if it stopped;
 - the tickets created, each with its priority and the remark that explains it.
 

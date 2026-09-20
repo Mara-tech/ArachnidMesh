@@ -1,6 +1,6 @@
 ---
 name: go
-description: Run one iteration of the Notion backlog — take the highest-priority todo ticket, or the one named with --ticket=<id>-n, split it first if it is too big to deliver in one pass, implement it on a branch, open the pull request, report on the ticket page, hand it over for review, and close it once the pull request is merged. Accepts --auto-merge to carry on through the merge instead of stopping at the handover, and --max-review-passes=N to cap the fix passes over the review comments.
+description: Run one iteration of the Notion backlog — take the highest-priority todo ticket, or the one named with --ticket=<id>-n, split it first if it is too big to deliver in one pass, implement it on a branch, open the pull request, report on the ticket page, hand it over for review, and close it once the pull request is merged. Accepts --auto-merge to carry on through the merge instead of stopping at the handover, --max-review-passes=N to cap the fix passes over the review comments, and --with-demo to prepare a visual demonstration of the change for the product owner.
 disable-model-invocation: true
 ---
 
@@ -13,11 +13,12 @@ Facts about the backlog — database, language, what this repository adds — ar
 [.claude/rules/notion-tickets.md](../../rules/notion-tickets.md), already in context. How a ticket is
 written is the Notion page it links to, « Writing a ticket »; steps 4 and 11 need it.
 
-**This file holds the decisions; the git and CI mechanics are next to it**, in
-[references/pull-request.md](references/pull-request.md) — cutting the branch safely, pushing without
-landing on the base branch, waiting for the checks, collecting the review, merging and cleaning up.
-Steps 5, 7, 8, 9 and 13 send you there. That file is the same on every project and contains nothing
-to fill in.
+**This file holds the decisions; the mechanics are next to it**, in `references/`. The git and CI
+half is [references/pull-request.md](references/pull-request.md) — cutting the branch safely, pushing
+without landing on the base branch, waiting for the checks, collecting the review, merging and
+cleaning up; steps 5, 7, 8, 9 and 13 send you there. What a demonstration for the product owner is
+made of is [references/demo.md](references/demo.md), where step 7 sends you under `--with-demo`.
+Both are the same on every project and contain nothing to fill in.
 
 <!-- arachnid:setup-only -->
 ## What this file needs before it runs
@@ -56,6 +57,15 @@ anything** — an iteration that merges when the user expected a handover is not
 | `--ticket=<id>-n` | take that ticket instead of the highest-priority one, step 1 | the top of the queue |
 | `--auto-merge` | wait for every check, triage the review, fix, merge, set `done`, end on `<your-main-branch>` | off |
 | `--max-review-passes=N` | ceiling on fix passes over review comments. `0` reads and records without fixing. **Ignored without `--auto-merge`** | `1` |
+| `--with-demo` | prepare a visual demonstration of the change for the product owner, step 7 | off |
+| `--no-demo` | no demonstration, whatever the default says | — |
+
+**`--with-demo` is the flag meant to be flipped per project**, and the word `off` in the table above
+is the whole switch: a project where a ticket without something to show is the exception writes `on`
+there instead, once, and every invocation carries a demonstration from then on. `--no-demo` is what
+that project uses to skip one. Nothing else in this file reads the default — the two flags are read
+here, and whichever is present wins over the table. Both at once is a contradiction, not a
+precedence to resolve: say so and stop.
 
 The name `--max-review-passes` deliberately avoids `--max-turns`: several CI setups already use that
 one for a ceiling on *conversation turns*, an unrelated counter, and one word for two meanings is how
@@ -264,6 +274,17 @@ all.
 Commit message, branch name, PR title and PR body in the repository language — see
 [.claude/rules/language.md](../../rules/language.md). The PR body links the Notion ticket.
 
+**Under `--with-demo`, the pull request also carries a demonstration** — a visual, non-technical
+account of what changed, made for the product owner rather than for the reviewer. What it may be
+made of, where it lives, and what has no place in it are in
+[references/demo.md](references/demo.md). Two things are decided here rather than there:
+
+- it is prepared **before** the pull request is opened, so the body can link it in the same pass —
+  a demonstration handed over separately is one that arrives after the reader has stopped looking;
+- **a change that lends itself to no visual demonstration is a legitimate outcome.** Say which change
+  it is and why nothing is worth showing, in a line, and carry on. A demonstration invented for a
+  change nobody can see costs the reader the trust they will need on the next one.
+
 Push with an explicit destination refspec, never a bare `git push`, and **read the push summary
 before doing anything else** — it must name `<prefix>/<slug>`, never `<your-main-branch>`. The
 command, and what to do if it named the base branch, are in
@@ -343,6 +364,11 @@ project, and they are the ones that get skipped:
   recording it there, and finding none means saying so in the report — an absent section reads like an
   oversight, a stated absence does not.
 
+Under `--with-demo`, one line more — **where the demonstration is**, as a link, or the sentence
+saying the change lent itself to none. It is one line and not the demonstration itself: this page is
+where the product owner looks, and a link they can open beats a description of what they would have
+seen.
+
 Under `--auto-merge`, one more section — **the review and what became of it**. Without it, the merge
 looks like an approval nobody gave:
 
@@ -373,6 +399,9 @@ Give the user, in the conversation language:
 
 - the pull request link and the ticket link;
 - what was done and what was deliberately left out;
+- **the demonstration**, when `--with-demo` ran: its link, whether it is an artifact or lives in the
+  repository, and whether it shows a before and an after — or the line saying the change lent itself
+  to none;
 - the tickets created at step 11, with the priority chosen for each and why — and for each one born
   of a review remark, **the remark that explains it**;
 - **the top of the queue as this iteration leaves it**: the ticket ID, its priority, and whether this
