@@ -4,7 +4,7 @@ A prioritized ticket backlog is a good way to work with iterations.
 
 
 ## The idea, starting from Scratch
-Start with one ticket, defining roughly your idea — the backlog creation below writes it for you, as four framing tickets.
+Start with one ticket, defining roughly your idea — the backlog creation below writes it for you, as the framing tickets it ships with.
 This ticket is not a coding one. At this iteration, we expect it will create more tickets going into more details, and here you cascade.
 One ticket at a time (usually you can parallelize tickets, but it's easier treating sequencially), your backlog evolves.
 Some tickets will create more, others won't. In any case, the goal is to tackle the top priority, and set it to `done`.

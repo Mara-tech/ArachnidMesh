@@ -133,6 +133,28 @@
         "- Écrire les commandes dans .claude/rules/checks.md, telles qu'on les tape.",
         "- La couverture est facultative : la brancher si c'est bon marché, sinon laisser la ligne dire qu'il n'y en a pas. Une absence annoncée vaut mieux qu'un rapport muet."
       ]
+    },
+    {
+      "key": "ci",
+      "Titre": "Rien ne vérifie une pull request avant qu'elle soit fusionnée",
+      "Statut": "todo",
+      "Priorité": 3100,
+      "Genre": "déploiement",
+      "dependsOn": [
+        "checks"
+      ],
+      "Description": "Constat : aucune vérification automatique ne se lance à l'ouverture d'une pull request — chaque rapport d'itération doit écrire que rien n'a vérifié celle qu'il vient d'ouvrir.\nConséquence : la seule machine qui lance les tests est celle qui vient de faire le travail, là où des dépendances installées à la main, des fichiers générés et des dossiers ignorés par git sont déjà en place. La Definition of Done du ticket des vérifications promet une commande qui « passe sur un clone neuf » : rien ne vérifie cette promesse, et seul un clone neuf peut la démentir.\n\n## ✅ Definition of Done\n- [ ] À chaque pull request, une intégration continue lance la commande que .claude/rules/checks.md nomme — la même, pas une copie\n- [ ] Elle part d'un dépôt fraîchement cloné et n'installe que ce que le projet déclare : une dépendance oubliée dans les fichiers de build échoue au lieu de passer sur un reste d'installation\n- [ ] Un échec rend la pull request visiblement rouge, et nomme ce qui a cassé\n- [ ] .claude/rules/checks.md dit que cette intégration continue existe et ce qu'elle lance, pour que la commande locale et la distante ne divergent pas sans qu'on le voie\n- [ ] Ce qui ne peut pas tourner sur un exécuteur hébergé — matériel particulier, secret, service tiers — est nommé comme non couvert plutôt que passé sous silence\n- [ ] Hors périmètre : déployer ou publier quoi que ce soit ; lancer à heure fixe ; tout ce qui n'est pas la vérification d'une pull request",
+      "body": [
+        "## Pourquoi ici, et pas dans le ticket des vérifications",
+        "Le ticket des vérifications monte ce qui tourne en local avant un push. Celui-ci vérifie que la même chose tourne à partir de rien. Ce n'est pas le même contrôle, même quand c'est la même commande — et le second est le seul qui puisse prendre le premier en défaut.",
+        "Il en dépend : une intégration continue qui lance une commande a besoin que la commande existe. Il vient juste après, parce qu'il coûte peu une fois cette commande écrite, et parce que chaque pull request ouverte ensuite en profite. Le retarder ne fait que réduire ce qu'il protège.",
+        "## Ce que ça change au-delà du dépôt",
+        "Aujourd'hui, chaque rapport de fin d'itération doit dire « rien n'a vérifié cette pull request », et quand la fusion est automatique la phrase compte double : aucun humain n'a lu la diff, et aucune machine non plus. Une fois ce ticket fait, cette phrase devient un verdict.",
+        "## Ce que ça lancera, au début",
+        "Ce que le ticket des vérifications a mis en place, et rien de plus. C'est peu, et ce n'est pas rien : un test qui passe en local sur une installation accumulée et échoue sur un clone neuf est exactement la panne que ce dépôt fabrique tout seul.",
+        "## Le piège à éviter",
+        "Ne pas laisser l'intégration continue se constituer sa propre liste de commandes. Dès que sa configuration nomme des étapes que checks.md ignore, le contrôle local et le distant ont divergé, et celui qui pousse n'a plus aucun moyen de reproduire un échec. L'intégration continue lit la commande du projet ; elle ne la redéfinit pas."
+      ]
     }
   ]
 }

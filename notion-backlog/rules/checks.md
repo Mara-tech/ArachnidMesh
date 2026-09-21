@@ -1,6 +1,6 @@
 # Local checks
 
-What has to pass before a push, and what reports coverage. **This file is the project's, not the
+What has to pass before a push, what a pull request runs, and what reports coverage. **This file is the project's, not the
 installer's**: it starts with whatever the setup could read off the build files, and it is filled in
 by the work itself — a ticket that adds a linter adds its line here, in the same pass.
 
@@ -11,6 +11,7 @@ by the work itself — a ticket that adds a linter adds its line here, in the sa
 <!-- arachnid:else -->
 | before a push | *not recorded yet* |
 <!-- arachnid:end -->
+| on every pull request | *not recorded yet* |
 <!-- arachnid:if coverageCmd -->
 | coverage | `<your-coverage-command>` |
 <!-- arachnid:else -->
@@ -30,6 +31,12 @@ the line as it is: the ticket that brings the first test is the one that fills i
 
 **A command that no longer works is a bug in this file.** Fix the line rather than working around it,
 and say in the report that you changed it.
+
+**A check this table names that a pull request does not run is a divergence.** The remote check and
+the local one answer the same question, and the cheapest way to keep them from drifting apart is for
+the workflow to run the command named here rather than a list of its own. When it does keep its own
+list, a line added above is a line to add there in the same pass — otherwise the check exists only on
+the machine that just did the work, which is the one machine it cannot catch out.
 
 Coverage has no line when the project measures none. That is a stated absence, and the report says
 so — an absent section reads like an oversight.

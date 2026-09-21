@@ -52,8 +52,14 @@ authorization of step 7 forbids.
 `gh pr checks` fails while **no** check has registered yet, which is the normal state for a few
 seconds after `gh pr create`. Retry a bounded number of times until one appears — that failure is
 expected, not an incident. It is also what a repository without CI looks like, so bound the retries
-and conclude "no check is configured" rather than waiting forever. Then block until they all finish,
-and read them:
+and conclude "no check is configured" rather than waiting forever.
+
+**That conclusion is only an answer when the project says it has none.**
+[.claude/rules/checks.md](../../../rules/checks.md) carries a line for what runs on a pull request:
+when it names something and nothing ever registers, the workflow is broken or gone. That is an
+incident to report, not a repository without CI — say so rather than merging past a silence.
+
+Then block until they all finish, and read them:
 
 ```
 gh pr checks <number> --watch --interval 30
