@@ -28,6 +28,7 @@ import {
   writeTicketPage,
 } from '../src/notion.js';
 import { calloutIcon, codeLanguage, inlineRichText, splitDocument, toNotionBlocks } from '../src/markdown.js';
+import { looksLikeMintty } from '../src/terminal.js';
 import { discoverModules } from '../src/modules.js';
 import { claudeMdChange, legacyClaudeMdChange } from '../src/plan.js';
 
@@ -789,4 +790,17 @@ test('every action a module declares is registered in the CLI', () => {
       assert.match(source, new RegExp(`'${component.action}':`), `${module.id}/${component.id}`);
     }
   }
+});
+
+test('only a Windows run from Git Bash without a console is sent through winpty', () => {
+  const gitBash = { platform: 'win32', stdinIsTTY: false, env: { MSYSTEM: 'MINGW64' } };
+  assert.equal(looksLikeMintty(gitBash), true);
+  assert.equal(looksLikeMintty({ ...gitBash, stdinIsTTY: true }), false, 'winpty or a pseudo-console already gave it one');
+  assert.equal(looksLikeMintty({ ...gitBash, env: {} }), false, 'cmd or PowerShell with piped input');
+  assert.equal(looksLikeMintty({ ...gitBash, platform: 'linux' }), false);
+  assert.equal(
+    looksLikeMintty({ ...gitBash, env: { MSYSTEM: 'MINGW64', ARACHNID_MESH_WINPTY: '1' } }),
+    false,
+    'the relaunched process never relaunches again',
+  );
 });
