@@ -22,7 +22,7 @@ The properties that carry meaning
 | `Description`     | a brief summary                                                                      |
 | `Commentaires`    | single-line plain text. One synthesis sentence at most — reports go in the page body |
 
-The page body renders in markdown, so is more appropriate to all details, incuding a clear Definition of Done. You may
+The page body renders in markdown, so is more appropriate to all details, including a clear Definition of Done. You may
 choose checkboxes to list items that should be checked before marking the ticket done (or review in progress)
 
 ## Exemple de requête utilisateur
