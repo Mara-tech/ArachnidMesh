@@ -32,6 +32,7 @@ import { buildPlan } from './plan.js';
 import { inspectProject } from './project.js';
 import { planQuestions, questionCatalogue } from './questions.js';
 import { orderSelection, resolveRequires } from './select.js';
+import { relaunchInConsole } from './terminal.js';
 import {
   componentOptions,
   dim,
@@ -378,6 +379,14 @@ async function main() {
   }
   if (options.verb && !VERBS.includes(options.verb)) {
     throw new Error(`Unknown verb: ${options.verb}`);
+  }
+
+  if (!options.yes) {
+    const status = relaunchInConsole();
+    if (status !== null) {
+      process.exitCode = status;
+      return;
+    }
   }
 
   const modules = discoverModules();
