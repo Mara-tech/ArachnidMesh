@@ -80,7 +80,7 @@ function describeStack(project) {
 }
 
 /** Screen 2 — what will be asked, what is not asked, and why. */
-export function renderQuestionPlan(questions, { provided = [], derived = [] } = {}) {
+export function renderQuestionPlan(questions, { provided = [], derived = [], resolved = [], fromEnv = [] } = {}) {
   const blocks = [];
 
   if (questions.length) {
@@ -99,6 +99,21 @@ export function renderQuestionPlan(questions, { provided = [], derived = [] } = 
       return `  ${q.message ?? q.key}: ${value}`;
     });
     blocks.push(dim(['Read from your project, not asked:', ...lines].join('\n')));
+  }
+
+  // Worked out from another answer: the link is asked, the lookup is ours. Said
+  // here because it may need a token the user was not expecting to be asked for.
+  if (resolved.length) {
+    const lines = resolved.flatMap((q) => [
+      `  ${q.message ?? q.key} — from « ${q.sourceMessage} »`,
+      ...(q.hint ? [`    ${q.hint}`] : []),
+    ]);
+    blocks.push(dim(['Worked out from your answers, not asked:', ...lines].join('\n')));
+  }
+
+  if (fromEnv.length) {
+    const lines = fromEnv.map((q) => `  ${q.message ?? q.key} (${q.env})`);
+    blocks.push(dim(['Taken from the environment, not asked:', ...lines].join('\n')));
   }
 
   if (provided.length) {

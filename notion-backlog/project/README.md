@@ -16,7 +16,7 @@ Using Claude, a Project is a tool, along with Artifacts, Code, and simple Chats.
    2. `<Project name>` : repeat the project name.
 
       e.g : Dharma
-   3. `<your-notion-database>` : the database ID of your Notion database. Use [this tool](../tools/get_data_source_id.py) to find it.
+   3. `<your-notion-database>` : the data source URI of your Notion database — [how to find it](../tools/README.md#finding-the-data-source-uri).
 
       e.g : `collection://846ba48-d9a4-37c2-98b3-000becc465a1`
    4. `<your-ticket-writing-instructions-notion-page>` : URL for general instructions for writing tickets.
