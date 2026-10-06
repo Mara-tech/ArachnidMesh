@@ -27,10 +27,17 @@ import {
   readManifest,
   writeManifest,
 } from './manifest.js';
-import { createBacklog, loadTicketPage, writeTicketPage } from './notion.js';
+import {
+  createBacklog,
+  explainNotionError,
+  isDataSourceUri,
+  loadTicketPage,
+  resolveDataSource,
+  writeTicketPage,
+} from './notion.js';
 import { buildPlan } from './plan.js';
 import { inspectProject } from './project.js';
-import { planQuestions, questionCatalogue } from './questions.js';
+import { pendingResolutions, planQuestions, questionCatalogue } from './questions.js';
 import { orderSelection, resolveRequires } from './select.js';
 import { relaunchInConsole } from './terminal.js';
 import {
@@ -49,6 +56,11 @@ const CLI_VERSION = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'u
 const ACTIONS = {
   'notion.createBacklog': runCreateBacklog,
   'notion.writeTicketPage': runWriteTicketPage,
+};
+
+/** What a question's `resolve.with` may name — the lookups that turn one answer into another. */
+const RESOLVERS = {
+  'notion.dataSource': resolveDataSourceAnswer,
 };
 
 function stopIfCancelled(value) {
@@ -223,6 +235,181 @@ async function runWriteTicketPage(answers, { interactive } = {}) {
   }
 }
 
+/**
+ * Work out every answer that comes from another one, once the questions are
+ * over and before any action calls Notion.
+ *
+ * `planned` is every question of the run, so a resolver can re-ask its source
+ * in the words the user already saw.
+ */
+async function runResolutions({ resolved, planned, answers, previousAnswers, given, catalogue, interactive }) {
+  for (const question of pendingResolutions(resolved, { answers, previousAnswers, given })) {
+    const resolver = RESOLVERS[question.resolve.with];
+    if (!resolver) throw new Error(`Unknown resolver: ${question.resolve.with}`);
+    await resolver(question, answers, { planned, catalogue, interactive });
+  }
+}
+
+const RETRY = {
+  token: 'Paste the token again',
+  link: 'Paste another link',
+  same: 'Try again',
+};
+
+/**
+ * The data source URI, worked out from the link to the backlog.
+ *
+ * The URI is what the agent queries, and it is not in the link: Notion has to
+ * be asked, with a token. The token is the one already given — asked for an
+ * action on this run, or set as NOTION_TOKEN *before* the wizard started — and
+ * otherwise asked for here, right before the one call that needs it.
+ *
+ * Nobody is left stuck on a failure: they can try again once the page is
+ * shared, type the URI themselves, or leave it for later, which leaves the
+ * placeholder for the plan and `doctor` to point at.
+ */
+async function resolveDataSourceAnswer(question, answers, { planned, catalogue, interactive }) {
+  const { key } = question;
+  const from = question.resolve.from;
+  const source = planned.find((q) => q.key === from) ?? { key: from, ...catalogue[from] };
+  const tokenQuestion = { key: 'notionToken', ...catalogue.notionToken };
+  const report = (message) => process.stdout.write(`${message}\n`);
+
+  // Whatever was stored was worked out from another link.
+  delete answers[key];
+
+  let link = answers[from];
+  // The token question is only planned when an action needs it — the
+  // environment counts all the same when only this lookup does.
+  let token = answers[tokenQuestion.key] ?? (tokenQuestion.env && process.env[tokenQuestion.env]) ?? undefined;
+
+  for (;;) {
+    if (isDataSourceUri(link)) {
+      // The URI itself, pasted where the link was asked: nothing to look up.
+      answers[key] = link.trim();
+      delete answers[from];
+      if (interactive && !source.onlyToResolve) {
+        log.info('That is the data source URI itself — kept as it is. The rules also link to the backlog, for whoever reads them:');
+        const again = await askQuestion(source, dim('↳'));
+        if (again && !isDataSourceUri(again)) answers[from] = again;
+      }
+      return;
+    }
+
+    if (!token) {
+      if (!interactive) {
+        report(`not resolved: ${key} — no Notion token. Set NOTION_TOKEN, or pass --set ${key}=collection://…`);
+        return;
+      }
+      token = await askToken(tokenQuestion);
+      if (!token) return askDataSourceByHand(question, answers, link);
+      answers[tokenQuestion.key] = token;
+    }
+
+    const progress = interactive ? spinner() : null;
+    progress?.start('Asking Notion for the data source of your backlog');
+
+    let found;
+    try {
+      found = await resolveDataSource(token, link);
+      progress?.stop(`Found « ${found.title} »`);
+    } catch (error) {
+      progress?.stop('Notion could not answer');
+      const advice = explainNotionError(error);
+      if (!interactive) {
+        report(`not resolved: ${key} — ${advice.message}`);
+        return;
+      }
+
+      log.warn(advice.message);
+      const next = stopIfCancelled(
+        await select({
+          message: 'What now?',
+          options: [
+            { value: 'retry', label: RETRY[advice.retry] },
+            { value: 'by-hand', label: 'Type the collection:// URI myself' },
+            { value: 'later', label: 'Leave it for later', hint: 'Configure fills it in — doctor points at it until then' },
+          ],
+        }),
+      );
+      if (next === 'by-hand') return askDataSourceByHand(question, answers, link);
+      if (next === 'later') return;
+
+      if (advice.retry === 'token') {
+        token = undefined;
+        delete answers[tokenQuestion.key];
+      }
+      if (advice.retry === 'link') {
+        link = await askQuestion(source, dim('↳'));
+        if (!link) return;
+        answers[from] = link;
+      }
+      continue;
+    }
+
+    const chosen = found.dataSources.length === 1
+      ? found.dataSources[0]
+      : await pickDataSource(found, { interactive, report, key });
+    if (!chosen) return;
+
+    answers[key] = chosen.uri;
+    interactive ? log.success(`${question.message}: ${chosen.uri}`) : report(`resolved: ${key} = ${chosen.uri}`);
+    return;
+  }
+}
+
+/** A database with more than one data source: which one holds the tickets is the user's call. */
+async function pickDataSource(found, { interactive, report, key }) {
+  if (!interactive) {
+    const names = found.dataSources.map((ds) => `${ds.name} → ${ds.uri}`).join(', ');
+    report(`not resolved: ${key} — « ${found.title} » has several data sources (${names}); pass --set ${key}=…`);
+    return null;
+  }
+  const uri = stopIfCancelled(
+    await select({
+      message: `« ${found.title} » has several data sources — which one holds the tickets?`,
+      options: found.dataSources.map((ds) => ({ value: ds.uri, label: ds.name, hint: ds.uri })),
+    }),
+  );
+  return found.dataSources.find((ds) => ds.uri === uri);
+}
+
+/**
+ * The token, asked for the lookup that needs it — and only then.
+ *
+ * An environment variable set once the wizard is running never reaches it, so
+ * this is the one moment it can still be given. Left empty, the user is shown
+ * the way that needs no token at all.
+ */
+async function askToken(tokenQuestion) {
+  const context = [
+    'The link does not hold the data source: Notion has to be asked for it, with an integration token.',
+    tokenQuestion.why,
+    tokenQuestion.whenUnsure && `Not sure? ${tokenQuestion.whenUnsure}`,
+    'No token? Leave it empty — there is another way.',
+  ].filter(Boolean);
+  log.message(dim(context.join('\n')));
+  const token = stopIfCancelled(await password({ message: tokenQuestion.message ?? tokenQuestion.key }));
+  return token?.trim() || undefined;
+}
+
+async function askDataSourceByHand(question, answers, link) {
+  const context = [question.why, question.whenUnsure && `Not sure? ${question.whenUnsure}`, link && `Your link: ${link}`]
+    .filter(Boolean);
+  log.message(dim(context.join('\n')));
+
+  const value = stopIfCancelled(
+    await text({
+      message: question.message ?? question.key,
+      placeholder: question.example ?? '',
+      defaultValue: '',
+      validate: (input) =>
+        !input || isDataSourceUri(input) ? undefined : 'A data source URI starts with collection:// — or leave it empty.',
+    }),
+  );
+  if (value) answers[question.key] = value.trim();
+}
+
 async function runWriteVerb({ verb, modules, project, manifest, options }) {
   const installedKeys = installedComponents(manifest);
   const restrictTo = verb === 'install' ? null : installedKeys;
@@ -251,7 +438,7 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
   const selection = orderSelection(modules, expanded);
   const catalogue = questionCatalogue(modules);
 
-  const { questions, derived, all, provided } = planQuestions(selection, {
+  const { questions, derived, resolved, fromEnv, all, provided } = planQuestions(selection, {
     projectRoot: project.root,
     previousAnswers: manifest.answers,
   });
@@ -263,9 +450,10 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
     ? questions.filter((q) => manifest.answers?.[q.key] === undefined && q.default === undefined)
     : questions;
 
-  renderQuestionPlan(toAsk, { provided, derived });
+  renderQuestionPlan(toAsk, { provided, derived, resolved, fromEnv });
 
   const answers = { ...manifest.answers, ...options.answers };
+  for (const question of fromEnv) answers[question.key] ??= process.env[question.env];
   for (const [index, question] of toAsk.entries()) {
     if (options.answers[question.key] !== undefined) continue;
     const value = await askQuestion(question, dim(`${index + 1}/${toAsk.length}`));
@@ -276,6 +464,16 @@ async function runWriteVerb({ verb, modules, project, manifest, options }) {
       answers[question.key] = question.default;
     }
   }
+
+  await runResolutions({
+    resolved,
+    planned: all,
+    answers,
+    previousAnswers: manifest.answers,
+    given: options.answers,
+    catalogue,
+    interactive: true,
+  });
 
   for (const { component } of selection) {
     if (!component.action) continue;
@@ -436,17 +634,28 @@ async function runHeadless({ modules, project, manifest, options }) {
   const { keys: expanded } = resolveRequires(modules, keys);
   const selection = orderSelection(modules, expanded);
   const catalogue = questionCatalogue(modules);
-  const { all } = planQuestions(selection, {
+  const { all, resolved, fromEnv } = planQuestions(selection, {
     projectRoot: project.root,
     previousAnswers: manifest.answers,
   });
 
   const answers = { ...manifest.answers, ...options.answers };
+  for (const question of fromEnv) answers[question.key] ??= process.env[question.env];
   for (const question of all) {
     if (answers[question.key] === undefined && question.default !== undefined) {
       answers[question.key] = question.default;
     }
   }
+
+  await runResolutions({
+    resolved,
+    planned: all,
+    answers,
+    previousAnswers: manifest.answers,
+    given: options.answers,
+    catalogue,
+    interactive: false,
+  });
 
   for (const { component } of selection) {
     if (!component.action) continue;

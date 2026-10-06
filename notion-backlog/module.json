@@ -1,6 +1,6 @@
 {
   "id": "notion-backlog",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "name": "Notion backlog",
   "description": "Use Notion as the backlog, one agent iteration at a time",
   "questions": {
@@ -12,15 +12,18 @@
     },
     "backlogUrl": {
       "type": "text",
-      "message": "Link to that backlog",
-      "why": "Open the page in Notion and copy the address bar.",
+      "message": "Link to your backlog in Notion",
+      "why": "Open the backlog in Notion and copy the address bar. The rules link to it, and what the agent queries is worked out from it.",
+      "whenUnsure": "No backlog yet? Leave it empty and tick « Create the Notion database » instead.",
       "example": "https://app.notion.com/p/…"
     },
     "dataSourceUri": {
       "type": "text",
       "message": "Data source URI of the backlog",
-      "why": "What the agent queries to find your tickets — a URL is not enough for that.",
-      "whenUnsure": "Leave it empty: tick « Create the Notion database » and this is one of the things it hands back. On an existing backlog, tools/get_data_source_id.py prints it.",
+      "why": "What the agent queries to find your tickets. It is not in the link, so Notion is asked for it.",
+      "hint": "Looked up with a Notion token — asked for right then, unless NOTION_TOKEN was set before the wizard started.",
+      "whenUnsure": "Ask Claude, which already reads your Notion: « What is the collection:// URI of this database? », followed by your link. It answers with a line that starts with collection://. Or leave it empty: the files say so, and Configure fills it in later.",
+      "resolve": { "from": "backlogUrl", "with": "notion.dataSource" },
       "example": "collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef"
     },
     "ticketPrefix": {
@@ -86,9 +89,10 @@
     "notionToken": {
       "type": "password",
       "secret": true,
+      "env": "NOTION_TOKEN",
       "message": "Notion integration token",
-      "why": "Used for this one call, then forgotten — it is never written to a file.",
-      "whenUnsure": "notion.so/my-integrations → New integration, then share your parent page with it."
+      "why": "Used for the calls of this run, then forgotten — it is never written to a file.",
+      "whenUnsure": "1. Open app.notion.com/developers/connections → « New integration »: any name, your workspace, save.\n2. Copy its token — it starts with ntn_.\n3. In Notion, open the page your backlog sits under → ··· → Connections → add that integration. Skip this and Notion answers « not found ».\nSet NOTION_TOKEN before starting the wizard and it is not asked at all."
     },
     "notionParentPage": {
       "type": "text",

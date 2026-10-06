@@ -54,7 +54,7 @@ folder changes.
 
    | Placeholder | What it is | Example |
    |---|---|---|
-   | `<your-notion-database>` | the data source URI of your backlog. Use [this tool](../tools/get_data_source_id.py) to find it | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
+   | `<your-notion-database>` | the data source URI of your backlog — [how to find it](../tools/README.md#finding-the-data-source-uri) | `collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef` |
    | `<your-main-branch>` | the branch your pull requests target | `main` |
 
    Both are facts you already have. What your project *runs* — tests, linters, coverage — is not

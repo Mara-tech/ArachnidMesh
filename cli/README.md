@@ -66,6 +66,24 @@ update. A block written at the project root by an earlier version is taken out o
 whatever you wrote around it stays, and a root `CLAUDE.md` that held nothing else is removed rather
 than left empty.
 
+## The backlog is asked for by its link
+
+What the skills query is the backlog's **data source URI**, `collection://…`, and it is not in the
+link: Notion has to be asked for it. Asking the user for it would be asking them to do a lookup, so
+the wizard asks for the link — what anyone can copy out of the address bar — and does the lookup
+once the questions are over:
+
+- the token is the one already given on this run, or `NOTION_TOKEN` when it was set **before** the
+  wizard started — a variable set once it is running never reaches it. Otherwise it is asked for
+  right then, with the steps to create one, and can be left empty;
+- a refusal is explained in plain words — page not shared with the integration, token not
+  recognised, a page that is not the database — and offers to try again, to type the URI by hand,
+  or to leave it for later;
+- a database with several data sources asks which one holds the tickets;
+- the URI pasted where the link was asked is taken as it is.
+
+Running the wizard again with the same link does not call Notion again; a new link does.
+
 ## The Notion pages it writes
 
 Two components do not write files at all — they call Notion:
@@ -101,7 +119,8 @@ says so when a block is still sitting in a root `CLAUDE.md`.
 ## Secrets
 
 A token is asked for only when the very next call needs it, and is **never written anywhere** — not
-to the manifest, not to settings. The Notion access your agent uses is the claude.ai connector
+to the manifest, not to settings. Set `NOTION_TOKEN` before starting the wizard and it is not asked
+at all. The Notion access your agent uses is the claude.ai connector
 (OAuth), which needs no token in the repository at all.
 
 ## Non-interactive
@@ -116,6 +135,8 @@ npx @mara-tech/arachnid-mesh install --yes \
   --set dataSourceUri="collection://…"
 ```
 
+`--set backlogUrl=…` instead of `dataSourceUri` works too, when `NOTION_TOKEN` is set: the URI is
+looked up, and a lookup that fails is printed as `not resolved:` rather than stopping the run.
 `--config <file>` takes the same answers as JSON. `doctor --yes` prints findings and exits 1 on error.
 
 ## Adding a module
@@ -133,6 +154,8 @@ A question carries more than its prompt:
 | `hint` | a second line of context, printed with it |
 | `whenUnsure` | where to go and look, printed with it |
 | `derived` | never asked — resolved from the project, and shown as what was found |
+| `resolve` | never asked — `{ "from": <question>, "with": <resolver> }`: worked out from another answer, which is asked in its place. The resolver is a name the CLI registers, like an action |
+| `env` | not asked when that environment variable is set at launch — its value is the answer |
 | `default` | a literal, or the name of a resolver (`git.baseBranch`, `stack.localChecks`, …) |
 
 A template file can carry both wordings of a sentence and let the answer pick:

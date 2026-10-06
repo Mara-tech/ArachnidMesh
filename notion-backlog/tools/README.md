@@ -107,10 +107,49 @@ They are not a connection test to delete — they are the first iterations of yo
     Not every project needs all four — a weekend prototype may stop after the first. Cancelling the others is your call, and [the framing rule](../rules/framing.md) says how much weight each level carries.
 
 
+## Finding the data source URI
+
+The rules and the skills query the backlog through its **data source URI**, `collection://…`. It is
+not in the link to the backlog — Notion has to be asked for it. Three ways, from the one that needs
+nothing:
+
+1. **The wizard.** `npx @mara-tech/arachnid-mesh` asks for the link to the backlog and looks the URI
+   up itself, with a Notion token it asks for at that moment. It hands the URI back directly when it
+   created the database.
+
+2. **Ask Claude.** Once Claude has access to the page (step 5), ask it, in a chat:
+
+    > What is the collection:// URI of this Notion database? https://app.notion.com/p/…
+
+    It answers with a line that starts with `collection://`. Nothing to install, no token.
+
+3. **The [get_data_source_id.py](get_data_source_id.py) script**, with Python 3 and the token from
+   step 3. Open a terminal **in this `tools/` folder** and run, in that same window:
+
+    macOS, Linux, Git Bash:
+
+    ```bash
+    pip install requests
+    export NOTION_TOKEN="ntn_…"
+    python3 get_data_source_id.py "https://app.notion.com/p/…"
+    ```
+
+    Windows PowerShell:
+
+    ```powershell
+    pip install requests
+    $env:NOTION_TOKEN = "ntn_…"
+    python get_data_source_id.py "https://app.notion.com/p/…"
+    ```
+
+    Paste your own token and your own link between the quotes. The variable only exists in the
+    window it was set in: run the script from another one, or from a window opened earlier, and it
+    says `NOTION_TOKEN` is missing. The URI is on the line that starts with `collection://`.
+
 ## Next steps
 - Keep [writing-a-ticket.md](writing-a-ticket.md) and the Notion page in step 2 in sync — or let
   `npx @mara-tech/arachnid-mesh` do it, which is what the **« Writing a ticket » page** component is.
-- Get the `collection://…` URI of your new backlog with [get_data_source_id.py](get_data_source_id.py) — the rules and skills need it.
-  (`npx @mara-tech/arachnid-mesh` resolves it for you from the backlog URL, or hands it back directly when it created the database.)
+- Get the `collection://…` URI of your new backlog — the rules and skills need it. See
+  [Finding the data source URI](#finding-the-data-source-uri) above.
 - Want to talk to explain your idea ? Check out [Project instructions](../project/README.md)
 - Want to let a coding agent work on an iteration ? Check out [Skills](../skills/README.md)

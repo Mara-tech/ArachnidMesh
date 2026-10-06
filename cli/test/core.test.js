@@ -9,10 +9,12 @@ import { detectStack, hasCode, suggestCoverageCommand, suggestLocalChecks } from
 import { buildPlan } from '../src/plan.js';
 import { planSettingsMerge } from '../src/settings.js';
 import { resolveRequires } from '../src/select.js';
-import { planQuestions } from '../src/questions.js';
+import { pendingResolutions, planQuestions } from '../src/questions.js';
 import {
   batches,
+  explainNotionError,
   extractId,
+  isDataSourceUri,
   loadSampleTickets,
   loadTicketPage,
   makePrefix,
@@ -20,6 +22,7 @@ import {
   pageVersion,
   planTicketPage,
   plainText,
+  resolveDataSource,
   richText,
   toBlocks,
   toProperties,
@@ -307,6 +310,80 @@ test('previous answers win over derived defaults', () => {
   });
 
   assert.equal(questions.find((q) => q.key === 'mainBranch').default, 'trunk');
+});
+
+/* The real shape: the URI is worked out from the link, the token may come from the environment. */
+const LINKED = {
+  id: 'notion-backlog',
+  questions: {
+    backlogUrl: { type: 'text', message: 'Link to your backlog in Notion' },
+    dataSourceUri: { type: 'text', resolve: { from: 'backlogUrl', with: 'notion.dataSource' } },
+    mainBranch: { type: 'text' },
+    notionToken: { type: 'password', secret: true, env: 'NOTION_TOKEN' },
+  },
+  components: [
+    { id: 'go', label: '/go', needs: ['dataSourceUri', 'mainBranch'] },
+    { id: 'rules', label: 'rules', needs: ['dataSourceUri', 'backlogUrl'] },
+    { id: 'page', label: 'page', needs: ['notionToken'] },
+    { id: 'create', label: 'create', provides: ['dataSourceUri', 'backlogUrl'] },
+  ],
+};
+const pick = (...ids) => ids.map((id) => ({ module: LINKED, component: LINKED.components.find((c) => c.id === id) }));
+
+test('a URI worked out from the link is never asked: the link is, once, in its place', () => {
+  const { questions, resolved } = planQuestions(pick('go', 'rules'), { projectRoot: process.cwd(), env: {} });
+
+  assert.deepEqual(questions.map((q) => q.key), ['backlogUrl', 'mainBranch']);
+  assert.deepEqual(resolved.map((q) => q.key), ['dataSourceUri']);
+  assert.equal(resolved[0].sourceMessage, 'Link to your backlog in Notion');
+  assert.equal(questions[0].onlyToResolve, undefined, 'the rules need the link for itself');
+});
+
+test('a link asked only to work the URI out is asked for the components that need the URI', () => {
+  const { questions } = planQuestions(pick('go'), { projectRoot: process.cwd(), env: {} });
+  const link = questions.find((q) => q.key === 'backlogUrl');
+
+  assert.deepEqual(link.askedFor, ['/go']);
+  assert.equal(link.onlyToResolve, true);
+});
+
+test('creating the database hands back the URI and the link, so neither is asked', () => {
+  const { questions, resolved } = planQuestions(pick('rules', 'create'), { projectRoot: process.cwd(), env: {} });
+
+  assert.deepEqual(questions, []);
+  assert.deepEqual(resolved, []);
+});
+
+test('a token already in the environment is not asked; an empty one is', () => {
+  const set = planQuestions(pick('page'), { projectRoot: process.cwd(), env: { NOTION_TOKEN: 'ntn_x' } });
+  assert.deepEqual(set.questions, []);
+  assert.deepEqual(set.fromEnv.map((q) => q.key), ['notionToken']);
+
+  const empty = planQuestions(pick('page'), { projectRoot: process.cwd(), env: { NOTION_TOKEN: '' } });
+  assert.deepEqual(empty.questions.map((q) => q.key), ['notionToken']);
+  assert.deepEqual(empty.fromEnv, []);
+});
+
+test('the URI is looked up again only when the link changed or nothing was found before', () => {
+  const { resolved } = planQuestions(pick('go', 'rules'), { projectRoot: process.cwd(), env: {} });
+  const pending = (answers, previousAnswers = {}, given = {}) =>
+    pendingResolutions(resolved, { answers, previousAnswers, given }).map((q) => q.key);
+
+  const link = 'https://app.notion.com/p/a1b2c3d4e5f64789abcd0123456789ef';
+  const before = { backlogUrl: link, dataSourceUri: 'collection://old' };
+
+  assert.deepEqual(pending({ backlogUrl: link }), ['dataSourceUri'], 'a first install');
+  assert.deepEqual(pending({ ...before }, before), [], 'same link, URI kept — Notion is not called');
+  assert.deepEqual(pending({ ...before, backlogUrl: `${link}?v=1` }, before), ['dataSourceUri'], 'a new link');
+  assert.deepEqual(pending({}), [], 'no link to work from');
+  assert.deepEqual(pending({ backlogUrl: link }, {}, { dataSourceUri: 'collection://given' }), [], '--set wins');
+});
+
+test('only a collection:// URI reads as a data source URI', () => {
+  assert.equal(isDataSourceUri('collection://a1b2c3d4-e5f6-4789-abcd-0123456789ef'), true);
+  assert.equal(isDataSourceUri(' collection://a1b2c3d4e5f64789abcd0123456789ef '), true);
+  assert.equal(isDataSourceUri('https://app.notion.com/p/a1b2c3d4e5f64789abcd0123456789ef'), false);
+  assert.equal(isDataSourceUri(undefined), false);
 });
 
 test('extractId anchors on the end, so a slug full of hex does not win', () => {
@@ -778,6 +855,79 @@ test('saying no to the update writes nothing at all', async () => {
     assert.deepEqual(notion.calls.map((call) => call.method), ['GET']);
   } finally {
     notion.restore();
+  }
+});
+
+/* A Notion that refuses, the way it does: a status and a JSON body. */
+function refusingNotion(status, body) {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status, text: async () => JSON.stringify(body) });
+  return () => { globalThis.fetch = original; };
+}
+
+const DATABASE_URL = 'https://app.notion.com/p/Backlog-Dharma-Project-a1b2c3d4e5f64789abcd0123456789ef?v=0123';
+
+test('a link to a database comes back as the URI of each of its data sources', async () => {
+  const notion = stubNotion(() => ({
+    id: 'a1b2c3d4-e5f6-4789-abcd-0123456789ef',
+    url: 'https://app.notion.com/p/a1b2c3d4e5f64789abcd0123456789ef',
+    title: [{ plain_text: 'Backlog Dharma Project' }],
+    data_sources: [{ id: 'd5000000-0000-4000-8000-000000000001', name: 'Tickets' }],
+  }));
+
+  try {
+    const found = await resolveDataSource('t', DATABASE_URL);
+
+    assert.deepEqual(notion.calls.map((c) => `${c.method} ${c.path}`), ['GET /databases/a1b2c3d4-e5f6-4789-abcd-0123456789ef']);
+    assert.equal(found.title, 'Backlog Dharma Project');
+    assert.deepEqual(found.dataSources, [
+      { id: 'd5000000-0000-4000-8000-000000000001', name: 'Tickets', uri: 'collection://d5000000-0000-4000-8000-000000000001' },
+    ]);
+  } finally {
+    notion.restore();
+  }
+});
+
+test('each way a lookup fails says what to change before trying again', async () => {
+  const failure = async (status, body) => {
+    const restore = refusingNotion(status, body);
+    try {
+      await resolveDataSource('t', DATABASE_URL);
+      assert.fail('the lookup should have failed');
+    } catch (error) {
+      return explainNotionError(error);
+    } finally {
+      restore();
+    }
+  };
+
+  assert.equal((await failure(401, { code: 'unauthorized', message: 'API token is invalid.' })).retry, 'token');
+
+  const unshared = await failure(404, { code: 'object_not_found', message: 'Could not find database.' });
+  assert.equal(unshared.retry, 'same', 'sharing the page fixes it, with the same token and link');
+  assert.match(unshared.message, /Connections/);
+
+  const page = await failure(400, { code: 'validation_error', message: 'Provided ID x is a page, not a database.' });
+  assert.equal(page.retry, 'link');
+
+  let notALink;
+  try {
+    await resolveDataSource('t', 'my backlog');
+  } catch (error) {
+    notALink = explainNotionError(error);
+  }
+  assert.equal(notALink.retry, 'link');
+});
+
+test('every resolver a module declares is registered in the CLI', () => {
+  const source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
+
+  for (const module of discoverModules()) {
+    for (const [key, question] of Object.entries(module.questions ?? {})) {
+      if (!question.resolve) continue;
+      assert.match(source, new RegExp(`'${question.resolve.with}':`), `${module.id} ${key}`);
+      assert.ok(module.questions[question.resolve.from], `${key} resolves from a question the module declares`);
+    }
   }
 });
 

@@ -44,9 +44,11 @@ async function call(token, method, path, body) {
   const text = await response.text();
   if (!response.ok) {
     let detail = text;
+    let code;
     try {
       const parsed = JSON.parse(text);
       detail = parsed.message ?? text;
+      code = parsed.code;
       if (parsed.code === 'object_not_found') {
         detail += '\n  The page must be shared with your integration: open it in Notion, ' +
           '“…” → Connections → add your integration.';
@@ -54,7 +56,11 @@ async function call(token, method, path, body) {
     } catch {
       /* keep the raw body */
     }
-    throw new Error(`Notion ${method} ${path} — ${response.status}: ${detail}`);
+    const error = new Error(`Notion ${method} ${path} — ${response.status}: ${detail}`);
+    error.status = response.status;
+    error.code = code;
+    error.detail = detail;
+    throw error;
   }
 
   return text ? JSON.parse(text) : {};
@@ -98,25 +104,82 @@ export function extractId(raw) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
-/** The `collection://…` URI the skill and the rules need. */
+const DATA_SOURCE_URI = /^collection:\/\/[0-9a-fA-F-]{32,36}$/;
+
+/** True for a `collection://…` URI — what the agent queries, already. */
+export function isDataSourceUri(value) {
+  return DATA_SOURCE_URI.test(String(value ?? '').trim());
+}
+
+/**
+ * The data sources behind a link to a database — what the skill and the rules
+ * query, as `collection://…` URIs.
+ *
+ * A database usually has one. One that has several returns them all: which one
+ * holds the tickets is the user's to say, not a guess to make here.
+ */
 export async function resolveDataSource(token, urlOrId) {
   const id = extractId(urlOrId);
   const database = await call(token, 'GET', `/databases/${id}`);
-  const dataSources = database.data_sources ?? [];
+  const dataSources = (database.data_sources ?? []).map((ds) => ({
+    id: ds.id,
+    name: ds.name || '(untitled)',
+    uri: `collection://${ds.id}`,
+  }));
 
   if (!dataSources.length) throw new Error('That database exposes no data source.');
-  if (dataSources.length > 1) {
-    const names = dataSources.map((ds) => `${ds.name} → collection://${ds.id}`).join('\n  ');
-    throw new Error(`That database has several data sources — pick one:\n  ${names}`);
-  }
 
   return {
-    dataSourceUri: `collection://${dataSources[0].id}`,
-    dataSourceId: dataSources[0].id,
+    dataSources,
     databaseId: database.id,
     url: database.url,
     title: (database.title ?? []).map((t) => t.plain_text).join('') || '(untitled)',
   };
+}
+
+/**
+ * Why a lookup failed, in the words of someone who has never seen an API — and
+ * what to change before trying again: the token, the link, or something in
+ * Notion that leaves both as they are.
+ */
+export function explainNotionError(error) {
+  if (!error?.status) {
+    if (/No Notion id found/.test(error?.message ?? '')) {
+      return {
+        retry: 'link',
+        message: 'That is not a link to a Notion page. Open the backlog in Notion and copy the whole address bar.',
+      };
+    }
+    return {
+      retry: 'same',
+      message: `Notion could not be reached: ${error?.message ?? error}. Check your connection.`,
+    };
+  }
+
+  if (error.status === 401) {
+    return {
+      retry: 'token',
+      message: 'Notion does not recognise that token. Copy it again — the whole « Internal Integration Secret », ntn_ included.',
+    };
+  }
+  if (error.code === 'object_not_found' || error.status === 404) {
+    return {
+      retry: 'same',
+      message:
+        'Notion found nothing your token may read at that link. Most of the time the page is not shared ' +
+        'with the integration yet: open the backlog — or the page above it — in Notion, ··· → Connections, ' +
+        'and add your integration. Then try again.',
+    };
+  }
+  if (error.status === 400 && /is a page/i.test(error.detail ?? '')) {
+    return {
+      retry: 'link',
+      message:
+        'That link opens a page, not the database itself. Open the database on its own — click its title, ' +
+        'or ··· → Open as full page — and copy the address bar from there.',
+    };
+  }
+  return { retry: 'same', message: error.message };
 }
 
 const PROPERTIES = {
